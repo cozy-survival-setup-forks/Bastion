@@ -172,7 +172,7 @@ for name, rtype in (('spawn', 'SPAWN'), ('room1', 'ROOM1'), ('room2', 'ROOM2'), 
 
 # the heart of each room: the fight starts when everybody is inside it, not merely in the corridor that leads there
 CORES = {
-    'room1_core': ('room1', (86, 141, 70, 140)),    # the rotunda, well past its archway
+    'room1_core': ('room1', (104, 136, 43, 61)),    # the Athenaeum, the hall north of the rotunda, where the first fight is
     'room2_core': ('room2', (100, 140, 144, 161)),   # the south hall, a few blocks past its gate
     'room3_core': ('room3', (41, 80, 89, 119)),      # the west hall, a few blocks past its gate
 }
@@ -191,9 +191,9 @@ def spot(x, z, y=8, yaw=0.0):
 points['anchor'] = [spot(200, 104, 8, 90.0)]
 
 # room 1: mobs come up in the rotunda, away from the walls
-r1 = floor_cells('room1', 92, 146, 74, 134, r=2)
+r1 = floor_cells('room1', 107, 132, 45, 60, r=0)
 r1 = [c for c in r1 if not (114 <= c[0] <= 126 and 94 <= c[1] <= 114)]        # not on the shrine itself
-points['room1'] = [spot(x, z) for x, z in spread(r1, 16, 6)]
+points['room1'] = [spot(x, z) for x, z in spread(r1, 14, 4)]
 
 # room 2: the south hall, and the altar the mini-boss rises from
 r2 = floor_cells('room2', 102, 138, 144, 158, r=2)
@@ -220,19 +220,19 @@ points['boss'] = [spot(x, z, yaw=90.0) for x, z in boss]
 # chests: hidden containers in the rotunda. Barrels blend in with the castle. More spots than artifacts.
 corner = []
 c1 = comp['room1']
-for z in range(76, 134):
-    for x in range(90, 154):
+for z in range(45, 61):
+    for x in range(107, 133):
         if not (c1[8, z, x] and arr[7, z, x] != AIR and clear(x, z, r=0, h=2)):
             continue
         walls = sum(1 for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)) if arr[8, z + dz, x + dx] != AIR)
         if walls >= 1 and not (112 <= x <= 128 and 90 <= z <= 116):
             corner.append((x, z))
-placed = spread(corner, 12, 9)
+placed = spread(corner, 12, 4)
 for x, z in placed:
     extra_barrels.append((x, 8, z))
 chest_spots = [(x, z) for x, _, z in extra_barrels]
-more = [c for c in corner if all((c[0] - d[0]) ** 2 + (c[1] - d[1]) ** 2 >= 49 for d in chest_spots)]
-chest_spots += spread(more, 12 - len(chest_spots), 7)
+more = [c for c in corner if all((c[0] - d[0]) ** 2 + (c[1] - d[1]) ** 2 >= 9 for d in chest_spots)]
+chest_spots += spread(more, 12 - len(chest_spots), 3) if len(chest_spots) < 12 else []
 points['chests'] = ["%s %s %s %s 0.0 0.0" % (WORLD, x + ox + 0.5, 8 + oy, z + oz + 0.5) for x, z in chest_spots]
 
 c2 = comp['room2']

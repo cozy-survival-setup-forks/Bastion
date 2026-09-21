@@ -577,7 +577,7 @@ public final class Dungeon {
     private void waveStarted(int number, String name) {
         waveTotal = Math.max(1, waves.remaining());
         dialogue.fire(Trigger.ON_WAVE_START, Map.of("wave", String.valueOf(number)));
-        titles.type(players(), messages.raw("wave-title", "wave", String.valueOf(number)), "#FF5555", messages.raw("wave-subtitle"));
+        titles.type(players(), messages.raw("wave-title", "wave", String.valueOf(number)), "#FF5555", messages.raw("wave-subtitle"), "🗡");
         for (Player p : players()) p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, 0.5f, 1.2f);
     }
 

@@ -12,13 +12,13 @@ code.
 
 | Download | What it is |
 | --- | --- |
-| `Bastion-1.2.1.jar` | The plugin |
+| `Bastion-1.2.2.jar` | The plugin |
 | `Dungeons-world.zip` | A ready world called `Dungeons` with the castle pasted in, gates built, and the game rules set. Import it with the Worlds plugin |
 | `Bastion-default-setup.zip` | `setup.yml` (regions, doors and points) and the `schematics` folder for that world: `dungeon_clean.schem` (the snapshot every run resets to) and `Dungeons.schem` (the castle with the gates, for pasting elsewhere) |
 
 ## Setting it up
 
-1. Put `Bastion-1.2.1.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
+1. Put `Bastion-1.2.2.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
 2. Unzip `Dungeons-world.zip` into the server folder and import `Dungeons` with the Worlds plugin.
 3. Unzip `Bastion-default-setup.zip` into `plugins/Bastion` and restart.
 4. `/dungeon` opens the menu. `/dungeon forcestart` opens the dungeon at once, for a test.
@@ -42,7 +42,7 @@ FUNDING -> OPEN -> LOCKED -> COUNTDOWN -> ROOM1_TRAVEL -> ROOM1_COMBAT -> ROOM1_
 - **Funding**: only this state takes money. Any other state shows "Dungeon in progress" and refuses.
 - **Open**: 5 minutes to join from the menu. Nobody came? The money is refunded (or kept, in `config.yml`).
 - **Locked, countdown**: doors seal, a 10 second countdown, then the first gate lifts. While they wait, players see the time left on the action bar and cannot break or place blocks.
-- **Room 1**: a compass on the action bar points the way, relative to where you look (first at the gate, then at the heart of the room). Once everyone is in the heart of the room (not just the
+- **Room 1**: a compass on the action bar points the way, relative to where you look (first at the gate, then at the Athenaeum). Once everyone is in the heart of the room (not just the
   corridor), the gate seals behind them and three waves come up out of the floor. When the last wave is dead the gate
   lifts again, and four of the nine artifacts are hidden in chests and barrels around the room, with a faint glint over each. Waves mix several kinds of mob, and their size follows how many players are in the room.
 - **Room 2**: the same, with five waves, then the Bloodwoken rises from the altar. When it dies the remaining artifacts are hidden in the

@@ -32,6 +32,11 @@ public final class Titles {
 
     /** {@code color} is a hex colour such as #FF5555. The title is shown in capitals. */
     public void type(Collection<Player> to, String title, String color, String subtitle) {
+        type(to, title, color, subtitle, "★");
+    }
+
+    /** The symbol on both sides of the subtitle: a star for wins and finds, a dagger for the fights. */
+    public void type(Collection<Player> to, String title, String color, String subtitle, String symbol) {
         List<Player> players = new ArrayList<>(to);
         if (players.isEmpty()) return;
         String head = Text.plain(title).toUpperCase(java.util.Locale.ROOT);
@@ -61,7 +66,7 @@ public final class Titles {
             }
             if (typed < 0) return true;
             if (typed < sub.length()) {
-                Component part = MINI.deserialize("<" + color + ">🗡</" + color + "> <white>" + escape(sub.substring(0, typed + 1)) + "</white> <" + color + ">🗡</" + color + ">");
+                Component part = MINI.deserialize("<" + color + ">" + symbol + "</" + color + "> <white>" + escape(sub.substring(0, typed + 1)) + "</white> <" + color + ">" + symbol + "</" + color + ">");
                 for (Player p : players) if (p.isOnline()) p.sendTitlePart(TitlePart.SUBTITLE, part);
                 click(players, typed, 0.25f, 1.8f);
                 return true;
