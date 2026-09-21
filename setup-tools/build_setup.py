@@ -158,7 +158,7 @@ def polygon_of(name, y0=6, y1=None, clip=None):
         footprint = footprint & keep
     squares = [sbox(x, z, x + 1, z + 1) for z, x in zip(*np.nonzero(footprint))]
     shape = unary_union(squares)
-    shape = shape.simplify(0.8, preserve_topology=True)
+    shape = shape.simplify(0.3, preserve_topology=True)
     if shape.geom_type == 'MultiPolygon':
         shape = max(shape.geoms, key=lambda p: p.area)
     pts = list(shape.exterior.coords)[:-1]
@@ -203,7 +203,11 @@ points['altar'] = [spot(108, 150, 9, 0.0)]
 # room 3: guards on the carpet, the boss in front of the throne, more boss points to reposition to
 r3 = floor_cells('room3', 56, 82, 98, 110, r=1)
 guards = [c for c in r3 if 99 <= c[1] <= 109 and 60 <= c[0] <= 76]
-points['guards'] = [spot(x, z, yaw=90.0) for x, z in spread(guards, 6, 4)]
+GOLD = palette.index('minecraft:raw_gold_block')
+gold_cells = [(x, z) for y, z, x in zip(*np.nonzero(arr == GOLD)) if y == 8 and 41 <= x <= 84 and 89 <= z <= 119]
+lowered = [(x, 8, z) for x, z in gold_cells]
+more_guards = [c for c in spread(guards, 12, 5) if all((c[0] - g[0]) ** 2 + (c[1] - g[1]) ** 2 >= 16 for g in gold_cells)][:6]
+points['guards'] = [spot(x, z, yaw=90.0) for x, z in gold_cells + more_guards]
 open_spots = [(x, z) for z in range(98, 111) for x in range(55, 84) if clear(x, z, r=1, h=7)]
 throne_front = min(open_spots, key=lambda c: (c[0] - 58) ** 2 + (c[1] - 104) ** 2)
 boss = [throne_front]
@@ -231,11 +235,28 @@ more = [c for c in corner if all((c[0] - d[0]) ** 2 + (c[1] - d[1]) ** 2 >= 49 f
 chest_spots += spread(more, 12 - len(chest_spots), 7)
 points['chests'] = ["%s %s %s %s 0.0 0.0" % (WORLD, x + ox + 0.5, 8 + oy, z + oz + 0.5) for x, z in chest_spots]
 
+c2 = comp['room2']
+corner2 = []
+for z in range(144, 160):
+    for x in range(101, 140):
+        if not (c2[8, z, x] and arr[7, z, x] != AIR and clear(x, z, r=0, h=2)):
+            continue
+        walls = sum(1 for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)) if arr[8, z + dz, x + dx] != AIR)
+        if walls >= 1 and not (115 <= x <= 125):
+            corner2.append((x, z))
+placed2 = spread(corner2, 8, 6)
+for x, z in placed2[:4]:
+    extra_barrels.append((x, 8, z))
+points['chests_room2'] = ["%s %s %s %s 0.0 0.0" % (WORLD, x + ox + 0.5, 8 + oy, z + oz + 0.5) for x, z in placed2]
+
 # ------------------------------------------------------------------ build the modified schematic
 out_arr = arr.copy()
 BARREL = pal('minecraft:barrel[facing=up,open=false]')
 for x, y, z in extra_barrels:
     out_arr[y, z, x] = BARREL
+for x, y, z in lowered:
+    out_arr[y - 1, z, x] = GOLD    # sunk into the floor, level with it
+    out_arr[y, z, x] = AIR
 for gid, (cells, state) in gate_cells.items():
     idx = pal(state)
     for x, y, z in cells:
@@ -313,8 +334,9 @@ with open(out + '/setup.yml', 'w', encoding='utf-8') as fh:
 
     fh.write("\n# world x y z yaw pitch\n")
     fh.write("#   anchor  where players arrive       room1, room2  where mobs rise out of the ground\n")
-    fh.write("#   altar   where the mini-boss rises   guards        the throne room guards\n")
+    fh.write("#   altar   where the mini-boss rises   guards        the throne room guards (the sunken gold blocks and more)\n")
     fh.write("#   boss    where the final boss rises (first) and moves to (the rest)\n")
+    fh.write("#   chests_room2  the same for the south hall\n")
     fh.write("#   chests  where an artifact can hide. A chest is placed at any spot that is not a container yet\npoints:\n")
     for group, spots in points.items():
         fh.write("  %s:\n" % group)

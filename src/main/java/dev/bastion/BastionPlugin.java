@@ -84,6 +84,7 @@ public final class BastionPlugin extends JavaPlugin {
 
         dungeon = new Dungeon(this, settings, messages, regions, points, store, rooms, tasks, doors, mobs, waves, bosses,
                 artifacts, rewards, dialogue, reset, fx, titles);
+        dungeon.editor = new dev.bastion.world.SnapshotEditor(this, new File(getDataFolder(), "schematics/dungeon_clean.schem"));
         dungeon.economy = VaultEconomy.hook();
         if (dungeon.economy == null) getLogger().warning("No Vault economy found: contributions are off. /dungeon forcestart still works.");
 

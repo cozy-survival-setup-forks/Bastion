@@ -54,11 +54,12 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class Dungeon {
 
     private static final String[] ARROWS = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
-    private static final String[] COMPASS = {"north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"};
+    private static final String[] COMPASS = {"ahead", "ahead to the right", "to your right", "behind you to the right", "behind you", "behind you to the left", "to your left", "ahead to the left"};
 
     // ---- collaborators, public so listeners and commands can use them
     public final JavaPlugin plugin;
     public Settings settings;
+    public dev.bastion.world.SnapshotEditor editor;
     public final Messages messages;
     public final RegionIndex regions;
     public final Points points;
@@ -82,6 +83,7 @@ public final class Dungeon {
     private final Map<UUID, Run> runs = new LinkedHashMap<>();
     private List<Player> cache = List.of();
     private boolean cacheDirty = true;
+    private long returnDeadline;
     private long joinDeadline, lockDeadline, countdownDeadline, runDeadline, celebrationDeadline;
     private long nextSecond, nextCompass, nextFirework;
     private int shownCountdown;
@@ -247,7 +249,7 @@ public final class Dungeon {
     private void openForEntry() {
         setState(DungeonState.OPEN);
         joinDeadline = System.currentTimeMillis() + settings.joinWindowMs;
-        Bukkit.broadcast(messages.prefixed("opened", "minutes", Text.number(settings.joinWindowMs / 60000.0)));
+        announce("announce-opened", "minutes", Text.number(settings.joinWindowMs / 60000.0));
     }
 
     // ---------------------------------------------------------------- joining and leaving
@@ -264,6 +266,8 @@ public final class Dungeon {
             return null;
         }
 
+        // artifacts kept from an earlier run are of no use in this one
+        artifacts.consume(player, true);
         store.remember(player.getUniqueId(), player.getLocation(), player.getGameMode());
         for (PotionEffect effect : List.copyOf(player.getActivePotionEffects())) player.removePotionEffect(effect.getType());
         player.setGameMode(GameMode.SURVIVAL);
@@ -363,9 +367,14 @@ public final class Dungeon {
             }
             case COUNTDOWN -> tickCountdown(now);
             case ROOM1_TRAVEL, ROOM2_TRAVEL, ROOM3_TRAVEL -> tickTravel(now);
-            case ROOM1_COMBAT, ROOM2_COMBAT, ROOM3_COMBAT -> tickCombat(now);
+            case ROOM1_COMBAT, ROOM3_COMBAT -> tickCombat(now);
             case ROOM1_LOOT -> tickLoot();
+            case ROOM2_COMBAT -> {
+                tickCombat(now);
+                if (minibossDead) tickLoot();
+            }
             case CELEBRATION -> tickCelebration(now);
+            case VICTORY, FAILED -> returnBar(now);
             default -> { }
         }
         if (state.inRun() && state != DungeonState.VICTORY && state != DungeonState.CELEBRATION && now >= runDeadline) {
@@ -429,7 +438,7 @@ public final class Dungeon {
         artifacts.newRun(settings.artifactsRoom1);
         dialogue.resetCooldowns();
 
-        announce(settings.startMessages, "start", "%participant_count%", String.valueOf(insideCount()));
+        announce("announce-start", "participant_count", String.valueOf(insideCount()));
 
         RoomDef room1 = rooms.room(1);
         if (room1 != null && room1.door() != null) doors.open(room1.door());
@@ -451,29 +460,42 @@ public final class Dungeon {
         return room == null || room.core() == null ? null : regions.get(room.core());
     }
 
+    /** True if the player is well inside the region, not just touching its edge: the middle and four points around. */
+    private static boolean deepInside(Region r, Location l, double margin) {
+        if (r == null || !l.getWorld().getName().equals(r.world())) return false;
+        double x = l.getX(), y = l.getY(), z = l.getZ();
+        return r.contains(x, y, z) && r.contains(x + margin, y, z) && r.contains(x - margin, y, z)
+                && r.contains(x, y, z + margin) && r.contains(x, y, z - margin);
+    }
+
+    private boolean inHeartOf(int level, RoomDef room, Player p) {
+        Region core = coreOf(room);
+        if (core != null) return core.world().equals(p.getWorld().getName()) && core.contains(p.getLocation().getX(), p.getLocation().getY(), p.getLocation().getZ());
+        // no core region set up: the room itself has to be entered well past the door
+        return deepInside(regions.firstOfType(RegionType.valueOf("ROOM" + level)), p.getLocation(), 9);
+    }
+
     private void tickTravel(long now) {
         int level = travelLevel(state);
         RoomDef room = rooms.room(level);
-        Region core = coreOf(room);
         List<Player> outside = new ArrayList<>();
         int insideRoom = 0;
         for (Player p : players()) {
-            Run run = runs.get(p.getUniqueId());
-            // inside means in the heart of the room, not in the corridor that leads to it
-            boolean in = core != null
-                    ? p.getWorld().getName().equals(core.world()) && core.contains(p.getLocation().getX(), p.getLocation().getY(), p.getLocation().getZ())
-                    : run.progress.level() >= level;
-            if (in) insideRoom++;
+            if (inHeartOf(level, room, p)) insideRoom++;
             else outside.add(p);
         }
         if (outside.isEmpty()) {
             if (insideRoom > 0) beginRoom(level);
             return;
         }
+        Region core = coreOf(room);
         Region target = core != null ? core : regions.firstOfType(RegionType.valueOf("ROOM" + level));
+        double[] gate = room != null && room.door() != null ? doors.center(room.door()) : null;
         for (Player p : outside) {
-            if (target != null) p.sendActionBar(compass(p, target));
             Run run = runs.get(p.getUniqueId());
+            // the gate first, then the heart of the room once they are through it
+            if (gate != null && run.progress.level() < level) p.sendActionBar(compass(p, gate[0], gate[2]));
+            else if (target != null) p.sendActionBar(compass(p, target.centerX(), target.centerZ()));
             // once somebody is in, the stragglers are told to hurry
             if (insideRoom > 0 && now >= run.nextWarn) {
                 run.nextWarn = now + settings.warnIntervalMs;
@@ -483,11 +505,13 @@ public final class Dungeon {
         }
     }
 
-    private Component compass(Player p, Region target) {
-        double dx = target.centerX() - p.getLocation().getX();
-        double dz = target.centerZ() - p.getLocation().getZ();
-        double degrees = (Math.toDegrees(Math.atan2(dx, -dz)) + 360) % 360;
-        int index = (int) Math.round(degrees / 45) % 8;
+    /** An arrow relative to where the player is looking: up is straight ahead. */
+    private Component compass(Player p, double tx, double tz) {
+        double dx = tx - p.getLocation().getX();
+        double dz = tz - p.getLocation().getZ();
+        double toTarget = Math.toDegrees(Math.atan2(-dx, dz));   // minecraft yaw of the bearing
+        double relative = ((toTarget - p.getLocation().getYaw()) % 360 + 540) % 360 - 180;   // -180..180, right is positive
+        int index = (int) Math.round(((relative + 360) % 360) / 45) % 8;
         return messages.text("compass", "arrow", ARROWS[index], "distance", String.valueOf((int) Math.hypot(dx, dz)), "direction", COMPASS[index]);
     }
 
@@ -513,13 +537,14 @@ public final class Dungeon {
             }
             default -> {
                 setState(DungeonState.ROOM3_COMBAT);
-                List<Rooms.WaveDef> guards = List.of(new Rooms.WaveDef("Guards", room.guards()));
+                List<Rooms.WaveDef> guards = room.waves().isEmpty() ? List.of(new Rooms.WaveDef("Guards", room.guards())) : room.waves();
                 startWaves(room, guards, room.guardGroup(), "guards", () -> bosses.storm(bossPoint(room), 3, () -> spawnFinal(room)));
             }
         }
     }
 
     private void startWaves(RoomDef room, List<Rooms.WaveDef> list, String group, String tier, Runnable cleared) {
+        waves.limits(settings.hardCapMobs, settings.capPerPlayer);
         waves.start(list, group, settings.maxActiveMobs, settings.scaleMobs ? settings.extraMobsPerPlayer : 0, 3000,
                 (dead, killer) -> mobKilled(killer, tier),
                 number -> waveStarted(number, list.get(number - 1).name()), cleared);
@@ -546,7 +571,9 @@ public final class Dungeon {
                 }
             }
         }
-        Component bar = messages.text("loot-bar", "found", String.valueOf(artifacts.room1Found()), "total", String.valueOf(artifacts.room1Quota()));
+        Component bar = state == DungeonState.ROOM1_LOOT
+                ? messages.text("loot-bar", "found", String.valueOf(artifacts.room1Found()), "total", String.valueOf(artifacts.room1Quota()))
+                : messages.text("loot-bar-left", "left", String.valueOf(artifacts.hiddenLeft()));
         for (Player p : players()) p.sendActionBar(bar);
     }
 
@@ -559,7 +586,12 @@ public final class Dungeon {
 
     private void tickCombat(long now) {
         mobs.tick(now);
-        waves.players(Math.max(1, players().size()));
+        // a wave is sized for the players who are in the room, not the whole party
+        int level = state == DungeonState.ROOM1_COMBAT ? 1 : state == DungeonState.ROOM2_COMBAT ? 2 : 3;
+        RoomDef room = rooms.room(level);
+        int here = 0;
+        for (Player p : players()) if (inHeartOf(level, room, p)) here++;
+        waves.players(Math.max(1, here));
         waves.tick(now, settings.wavePauseMs);
     }
 
@@ -567,7 +599,7 @@ public final class Dungeon {
 
     private void room1Cleared() {
         setState(DungeonState.ROOM1_LOOT);
-        int hidden = artifacts.hideRoom1(points);
+        int hidden = artifacts.hideRoom1(points, rooms.room(1).chestGroup());
         unseal(1);
         titles.type(players(), messages.raw("loot-title"), "#B3A2FF", messages.raw("loot-subtitle", "count", String.valueOf(artifacts.room1Quota())));
         if (hidden == 0 || artifacts.room1Quota() == 0) unlockRoom(2);
@@ -619,10 +651,20 @@ public final class Dungeon {
                 mobs.killAll();   // its summoned vexes go with it
                 unseal(2);
                 mobKilled(lastHit, "miniboss");
-                artifacts.dropRoom2(where, new ArrayList<>(players()), settings.autoDistribute);
+                hideRoom2Artifacts(where);
                 checkThroneUnlock();
             }
         });
+    }
+
+    /** The rest of the artifacts go in the second room's chests. With no chest spots they are dropped instead. */
+    private void hideRoom2Artifacts(Location where) {
+        int hidden = artifacts.hideRoom2(points, rooms.room(2).chestGroup());
+        if (hidden > 0) {
+            titles.type(players(), messages.raw("loot-title"), "#B3A2FF", messages.raw("loot-subtitle", "count", String.valueOf(artifacts.hiddenLeft())));
+        } else {
+            artifacts.dropRoom2(where, new ArrayList<>(players()), settings.autoDistribute);
+        }
     }
 
     private Location playerCenter() {
@@ -681,10 +723,11 @@ public final class Dungeon {
             rewards.victory(p);
             artifacts.consume(p, settings.consumeArtifacts);
         }
-        announce(settings.victoryMessages, "victory", "%last_hit_player%", lastHit, "%boss_name%", Text.plain(boss));
+        announce("announce-victory", "last_hit_player", lastHit, "boss_name", Text.plain(boss));
         dialogue.fire(Trigger.ON_VICTORY, Map.of("player", lastHit));
         fx.sound(Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
 
+        returnDeadline = System.currentTimeMillis() + 3000 + settings.celebrationMs;
         tasks.later(60, () -> {
             setState(DungeonState.CELEBRATION);
             celebrationDeadline = System.currentTimeMillis() + settings.celebrationMs;
@@ -692,7 +735,14 @@ public final class Dungeon {
         });
     }
 
+    /** How long until everybody is sent home, on the action bar. */
+    private void returnBar(long now) {
+        Component bar = messages.text("return-timer", "time", clock(msLeft(returnDeadline)));
+        for (Player p : players()) p.sendActionBar(bar);
+    }
+
     private void tickCelebration(long now) {
+        returnBar(now);
         if (now >= celebrationDeadline) {
             beginReset();
             return;
@@ -716,7 +766,7 @@ public final class Dungeon {
     /** The run is lost: time ran out, everybody died, or an admin ended it. */
     public void fail(String reason) {
         if (!state.inRun() || state == DungeonState.VICTORY || state == DungeonState.CELEBRATION) return;
-        String boss = bossName.isEmpty() ? "the guardian" : bossName;
+        String boss = bossName.isEmpty() ? "The guardian" : bossName;
         for (Bosses.BossFight fight : List.copyOf(bosses.fights())) {
             if (fight.def.dramaticDeath()) boss = Text.plain(fight.def.mob().name());
             bosses.escape(fight);
@@ -724,8 +774,9 @@ public final class Dungeon {
         setState(DungeonState.FAILED);
         store.result("FAILED", Text.plain(boss));
         waves.stop();
-        announce(settings.failureMessages, "failure", "%boss_name%", Text.plain(boss));
+        announce("announce-failure", "boss_name", Text.plain(boss));
         dialogue.fire(Trigger.ON_FAILURE, Map.of("reason", reason));
+        returnDeadline = System.currentTimeMillis() + 4000;
         tasks.later(80, this::beginReset);
     }
 
@@ -735,11 +786,9 @@ public final class Dungeon {
         else if (state != DungeonState.FUNDING && state != DungeonState.RESETTING) beginReset();
     }
 
-    /** A message to the whole server. The config can list several and one is picked; else the messages.yml one is used. */
-    private void announce(List<String> variants, String key, String... pairs) {
-        String text = variants.isEmpty() ? messages.raw(key) : variants.get(ThreadLocalRandom.current().nextInt(variants.size()));
-        for (int i = 0; i + 1 < pairs.length; i += 2) text = text.replace(pairs[i], pairs[i + 1]);
-        Bukkit.broadcast(Text.component(text));
+    /** A block of lines to the whole server, from messages.yml. */
+    private void announce(String key, String... pairs) {
+        for (String line : messages.lines(key, pairs)) Bukkit.broadcast(Text.component(line));
     }
 
     // ---------------------------------------------------------------- resetting
@@ -827,11 +876,18 @@ public final class Dungeon {
         Run run = runs.get(player.getUniqueId());
         if (run == null || !run.inside() || to.getWorld() == null) return false;
         String world = to.getWorld().getName();
-        Region step = regions.findStep(world, to.getX(), to.getY(), to.getZ());
+        double x = to.getX(), y = to.getY(), z = to.getZ();
+        Region step = regions.findStep(world, x, y, z);
         int unlocked = state.unlockedLevel();
         if (step != null) {
             int level = step.type().level();
-            if (level > unlocked) return true;
+            // a locked room stops a player only when they are clearly walking into it, so brushing past a wall or
+            // a pane at its edge never catches them
+            if (level > unlocked) {
+                double m = 0.4;
+                return locked(world, x + m, y, z, unlocked) && locked(world, x - m, y, z, unlocked)
+                        && locked(world, x, y, z + m, unlocked) && locked(world, x, y, z - m, unlocked);
+            }
             if (level > run.progress.level()) {
                 run.progress = switch (level) {
                     case 1 -> RoomProgress.ROOM1;
@@ -841,11 +897,19 @@ public final class Dungeon {
             }
             return false;
         }
-        // until the doors open, spawn is a cell
+        // until the doors open, spawn is a cell: stopped only when clearly outside it on every side
         if (unlocked == 0 && regions.inType(world, from.getX(), from.getY(), from.getZ(), RegionType.SPAWN)) {
-            return regions.firstOfType(RegionType.SPAWN) != null;
+            double m = 0.6;
+            return regions.firstOfType(RegionType.SPAWN) != null
+                    && !regions.inType(world, x + m, y, z, RegionType.SPAWN) && !regions.inType(world, x - m, y, z, RegionType.SPAWN)
+                    && !regions.inType(world, x, y, z + m, RegionType.SPAWN) && !regions.inType(world, x, y, z - m, RegionType.SPAWN);
         }
         return false;
+    }
+
+    private boolean locked(String world, double x, double y, double z, int unlocked) {
+        Region r = regions.findStep(world, x, y, z);
+        return r != null && r.type().level() > unlocked;
     }
 
     // ---------------------------------------------------------------- placeholders

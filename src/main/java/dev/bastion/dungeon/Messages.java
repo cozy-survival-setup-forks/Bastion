@@ -6,6 +6,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.command.CommandSender;
+import java.util.List;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -35,6 +36,16 @@ public final class Messages {
         String text = yaml.getString(key, key);
         for (int i = 0; i + 1 < pairs.length; i += 2) text = text.replace("%" + pairs[i] + "%", pairs[i + 1]);
         return text;
+    }
+
+    /** A block of lines, for the big server announcements. */
+    public List<String> lines(String key, String... pairs) {
+        List<String> out = new java.util.ArrayList<>();
+        for (String line : yaml.getStringList(key)) {
+            for (int i = 0; i + 1 < pairs.length; i += 2) line = line.replace("%" + pairs[i] + "%", pairs[i + 1]);
+            out.add(line);
+        }
+        return out;
     }
 
     public Component text(String key, String... pairs) {

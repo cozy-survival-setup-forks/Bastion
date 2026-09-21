@@ -58,7 +58,7 @@ public final class Mobs {
     public static final NamespacedKey TAG = new NamespacedKey("bastion", "mob");
     public static final NamespacedKey HURL = new NamespacedKey("bastion", "hurl");
 
-    public enum Trait { SHOVE, FLICKER, HURL, WAR_CRY }
+    public enum Trait { SHOVE, FLICKER, HURL, WAR_CRY, LEAP, BLINK, WITHER_TOUCH, HUNGER_TOUCH, FROST_TOUCH, HEAL_PULSE, BLAST }
 
     public record MobDef(String id, String name, EntityType type, double health, double damage, double speed,
                          Map<EquipmentSlot, Material> gear, List<PotionEffect> effects, String tier,
@@ -83,23 +83,25 @@ public final class Mobs {
     private final class Emerging {
         final LivingEntity entity;
         final Location ground;
-        final double fromScale, toScale;
+        final double fromScale, toScale, sink;
         final int total;
         final Runnable ready;
         int step;
 
-        Emerging(LivingEntity entity, Location ground, double fromScale, double toScale, int total, Runnable ready) {
+        Emerging(LivingEntity entity, Location ground, double fromScale, double toScale, double sink, int total, Runnable ready) {
             this.entity = entity;
             this.ground = ground;
             this.fromScale = fromScale;
             this.toScale = toScale;
+            this.sink = sink;
             this.total = total;
             this.ready = ready;
         }
     }
 
-    private static final double SINK = 0.6;
-    private static final int EMERGE_STEPS = 12;
+    /** How many two-tick steps a rise takes: three seconds for a mob, five for a boss. */
+    public static final int MOB_STEPS = 30;
+    public static final int BOSS_STEPS = 50;
     private static final int EMERGE_PERIOD = 2;
 
     private final Plugin plugin;
@@ -195,14 +197,13 @@ public final class Mobs {
         State state = new State(def);
         state.onDeath = onDeath;
         tracked.put(entity.getUniqueId(), state);
-        emerge(entity, ground, 1, 1, () -> ready(entity, state));
+        emerge(entity, ground, 1, 1, MOB_STEPS, () -> ready(entity, state));
         return entity;
     }
 
     /** Spawns the mob dressed and hidden in the ground at the spot, not yet tracked or rising. */
     public LivingEntity create(MobDef def, Location ground) {
-        Location below = ground.clone().subtract(0, SINK, 0);
-        return (LivingEntity) ground.getWorld().spawnEntity(below, def.type, CreatureSpawnEvent.SpawnReason.CUSTOM, e -> {
+        return (LivingEntity) ground.getWorld().spawnEntity(ground, def.type, CreatureSpawnEvent.SpawnReason.CUSTOM, e -> {
             LivingEntity le = (LivingEntity) e;
             hide(le);
             dress(le, def);
@@ -284,13 +285,16 @@ public final class Mobs {
      * The shared ground-emerge animation: sound, cracking particles and a slow rise, then it is released. Bosses
      * grow from one scale to another while they come up.
      */
-    public void emerge(LivingEntity entity, Location ground, double fromScale, double toScale, Runnable ready) {
-        Location start = ground.clone().subtract(0, SINK, 0);
-        entity.teleport(start);
+    public void emerge(LivingEntity entity, Location ground, double fromScale, double toScale, int steps, Runnable ready) {
         setScale(entity, fromScale);
+        // it sinks as deep as it is tall, so it is out of sight in the floor and rises in view
+        double baseHeight = entity.getHeight() / Math.max(0.1, fromScale);
+        double sink = Math.min(7, baseHeight * toScale * 0.95 + 0.2);
+        entity.teleport(ground.clone().subtract(0, sink, 0));
+        entity.setInvisible(false);
         fx.sound(Sound.BLOCK_DEEPSLATE_BREAK, ground, 1.2f, 0.6f);
         fx.sound(Sound.BLOCK_GRAVEL_BREAK, ground, 1f, 0.5f);
-        emerging.add(new Emerging(entity, ground, fromScale, toScale, EMERGE_STEPS, ready));
+        emerging.add(new Emerging(entity, ground, fromScale, toScale, sink, steps, ready));
         if (emergeTask == null) {
             emergeTask = Bukkit.getScheduler().runTaskTimer(plugin, this::emergeStep, EMERGE_PERIOD, EMERGE_PERIOD);
         }
@@ -306,15 +310,16 @@ public final class Mobs {
             }
             e.step++;
             double progress = Math.min(1, e.step / (double) e.total);
-            Location at = e.ground.clone().subtract(0, SINK * (1 - progress), 0);
+            Location at = e.ground.clone().subtract(0, e.sink * (1 - progress), 0);
             at.setYaw(e.entity.getLocation().getYaw());
             e.entity.teleport(at);
             setScale(e.entity, e.fromScale + (e.toScale - e.fromScale) * progress);
+            if (e.step % 10 == 0) fx.sound(Sound.BLOCK_GRAVEL_BREAK, e.ground, 0.7f, 0.5f);
             if (e.step % 2 == 0) {
                 World world = e.ground.getWorld();
                 BlockData floor = world.getBlockAt(e.ground).getRelative(org.bukkit.block.BlockFace.DOWN).getBlockData();
                 if (floor.getMaterial().isAir()) floor = Bukkit.createBlockData(Material.STONE);
-                fx.particle(Particle.BLOCK, e.ground.clone().add(0, 0.1, 0), 10, 0.4, 0.1, 0.4, 0.1, floor);
+                fx.particle(Particle.BLOCK, e.ground.clone().add(0, 0.1, 0), 8, 0.5, 0.1, 0.5, 0.1, floor);
             }
             if (e.step >= e.total) {
                 it.remove();
@@ -340,6 +345,18 @@ public final class Mobs {
     public static void setScale(LivingEntity le, double scale) {
         AttributeInstance a = le.getAttribute(Attribute.SCALE);
         if (a != null) a.setBaseValue(scale);
+    }
+
+    /** True if the spot is not in or over water, so nothing rises out of a pool. */
+    public static boolean isDry(Location at) {
+        org.bukkit.block.Block block = at.getBlock();
+        org.bukkit.block.Block below = block.getRelative(org.bukkit.block.BlockFace.DOWN);
+        org.bukkit.block.Block above = block.getRelative(org.bukkit.block.BlockFace.UP);
+        return !wet(block) && !wet(below) && !above.isLiquid();
+    }
+
+    private static boolean wet(org.bukkit.block.Block block) {
+        return block.isLiquid() || (block.getBlockData() instanceof org.bukkit.block.data.Waterlogged w && w.isWaterlogged());
     }
 
     // ---------------------------------------------------------------- tracking
@@ -402,6 +419,7 @@ public final class Mobs {
                 continue;
             }
             State state = e.getValue();
+            act(now, entity, state);
             if (state.trait == Trait.HURL && now >= state.nextTraitAt && entity instanceof Mob mob
                     && mob.getTarget() instanceof Player target && target.getWorld() == mob.getWorld()
                     && mob.getLocation().distanceSquared(target.getLocation()) <= 196 && mob.hasLineOfSight(target)) {
@@ -412,6 +430,77 @@ public final class Mobs {
             }
         }
         after.forEach(Runnable::run);
+    }
+
+    /** The traits that act on their own: leaping, blinking behind a target, and healing the others. */
+    private void act(long now, Entity entity, State state) {
+        if (state.trait == null || now < state.nextTraitAt || !(entity instanceof Mob mob)) return;
+        switch (state.trait) {
+            case LEAP -> {
+                if (!(mob.getTarget() instanceof Player t) || t.getWorld() != mob.getWorld() || !mob.isOnGround()) return;
+                double d2 = mob.getLocation().distanceSquared(t.getLocation());
+                if (d2 < 16 || d2 > 100) return;
+                state.nextTraitAt = now + 6000;
+                Vector dir = t.getLocation().toVector().subtract(mob.getLocation().toVector()).setY(0);
+                if (dir.lengthSquared() < 1e-4) return;
+                mob.setVelocity(dir.normalize().multiply(1.0).setY(0.55));
+                fx.sound(Sound.ENTITY_RAVAGER_ATTACK, mob.getLocation(), 0.8f, 1.4f);
+            }
+            case BLINK -> {
+                if (!(mob.getTarget() instanceof Player t) || t.getWorld() != mob.getWorld()) return;
+                double d2 = mob.getLocation().distanceSquared(t.getLocation());
+                if (d2 < 9 || d2 > 256) return;
+                Location back = t.getLocation().add(t.getLocation().getDirection().setY(0).normalize().multiply(-2));
+                boolean room = back.getBlock().isPassable() && back.clone().add(0, 1, 0).getBlock().isPassable()
+                        && back.clone().subtract(0, 1, 0).getBlock().isSolid() && isDry(back);
+                state.nextTraitAt = now + (room ? 9000 : 2000);
+                if (!room) return;
+                fx.particle(Particle.PORTAL, mob.getLocation().add(0, 1, 0), 30, 0.3, 0.6, 0.3, 0.3);
+                mob.teleport(back);
+                fx.particle(Particle.PORTAL, back.clone().add(0, 1, 0), 30, 0.3, 0.6, 0.3, 0.3);
+                fx.sound(Sound.ENTITY_ENDERMAN_TELEPORT, back, 0.8f, 1.2f);
+            }
+            case HEAL_PULSE -> {
+                state.nextTraitAt = now + 6000;
+                Location at = mob.getLocation();
+                for (Map.Entry<UUID, State> other : tracked.entrySet()) {
+                    Entity e = Bukkit.getEntity(other.getKey());
+                    if (!(e instanceof LivingEntity le) || e == mob || e.getWorld() != mob.getWorld() || e.getLocation().distanceSquared(at) > 64) continue;
+                    AttributeInstance max = le.getAttribute(Attribute.MAX_HEALTH);
+                    if (max != null) le.setHealth(Math.min(max.getValue(), le.getHealth() + 8));
+                    fx.particle(Particle.HEART, le.getLocation().add(0, 1.6, 0), 3, 0.3, 0.2, 0.3, 0);
+                }
+                fx.sound(Sound.ENTITY_EVOKER_CAST_SPELL, at, 0.8f, 1.3f);
+            }
+            default -> { }
+        }
+    }
+
+    /** A hit by a mob whose touch carries something with it. */
+    public void touch(State state, Player victim) {
+        if (state.trait == null) return;
+        switch (state.trait) {
+            case WITHER_TOUCH -> victim.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 60, 0, true, true));
+            case HUNGER_TOUCH -> victim.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 120, 1, true, true));
+            case FROST_TOUCH -> {
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1, true, true));
+                fx.particle(Particle.SNOWFLAKE, victim.getLocation().add(0, 1, 0), 12, 0.3, 0.5, 0.3, 0.02);
+            }
+            default -> { }
+        }
+    }
+
+    /** A volatile mob goes off when it dies: a burst that knocks back and hurts, but cannot kill and breaks nothing. */
+    public void blast(Location at) {
+        fx.particle(Particle.EXPLOSION, at.clone().add(0, 1, 0), 3, 0.6, 0.6, 0.6, 0);
+        fx.particle(Particle.LARGE_SMOKE, at.clone().add(0, 1, 0), 20, 0.6, 0.6, 0.6, 0.05);
+        fx.sound(Sound.ENTITY_GENERIC_EXPLODE, at, 1f, 1.2f);
+        for (Player p : alive.get()) {
+            if (p.getWorld() != at.getWorld() || p.getLocation().distanceSquared(at) > 12.25) continue;
+            Vector away = p.getLocation().toVector().subtract(at.toVector()).setY(0);
+            if (away.lengthSquared() > 1e-4) p.setVelocity(away.normalize().multiply(0.9).setY(0.4));
+            dev.bastion.boss.Bosses.hurt(p, 6, null, 6);
+        }
     }
 
     /** A hit by a mob with the shove trait. */

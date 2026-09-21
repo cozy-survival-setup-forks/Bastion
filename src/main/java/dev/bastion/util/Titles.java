@@ -21,7 +21,6 @@ import java.util.List;
 public final class Titles {
 
     private static final MiniMessage MINI = MiniMessage.miniMessage();
-    private static final Title.Times TIMES = Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(3000), Duration.ofMillis(500));
     private static final int TYPING_TICKS = 2;
     private static final int PAUSE_STEPS = 4;
 
@@ -39,7 +38,10 @@ public final class Titles {
         String sub = subtitle == null ? "" : Text.plain(subtitle);
         if (head.isEmpty()) return;
 
-        Title first = Title.title(colored(color, head.substring(0, 1)), Component.empty(), TIMES);
+        // it stays until everything is typed, and a couple of seconds after
+        long typingMs = (long) (head.length() + PAUSE_STEPS + sub.length()) * TYPING_TICKS * 50L;
+        Title.Times times = Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(typingMs + 2500), Duration.ofMillis(600));
+        Title first = Title.title(colored(color, head.substring(0, 1)), Component.empty(), times);
         for (Player p : players) if (p.isOnline()) p.showTitle(first);
         click(players, 0, 0.3f, 1.6f);
 

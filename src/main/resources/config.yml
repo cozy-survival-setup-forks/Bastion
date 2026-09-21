@@ -35,9 +35,12 @@ mobs:
   # More mobs per wave for bigger parties, so a solo run is not overwhelmed.
   scale-with-players: true
   # Each extra player adds this share of a wave (0.5 means +50% of the wave per extra player).
-  extra-per-player: 0.5
+  extra-per-player: 0.75
   # The most mobs alive at once, however big the wave. The rest come as earlier ones die.
   max-active: 8
+  # Each extra player in the room lets this many more be alive at once, up to hard-cap.
+  max-active-per-player: 2
+  hard-cap: 40
   wave-pause-seconds: 5
   # Who gets the kill reward: last_hit or top_damage
   credit: last_hit
@@ -49,17 +52,6 @@ commands:
 reset:
   # How much of a tick may be spent putting blocks back. Lower is gentler on the server, and slower.
   budget-ms-per-tick: 6
-
-# Sent to the whole server. Several lines are rotated at random.
-# %participant_count%  %last_hit_player%  %boss_name%
-announcements:
-  start:
-    - "&6⚔ The Buried Throne has opened. &e%participant_count% &6inside, may the throne be merciful."
-    - "&6⚔ The doors of the Buried Throne have closed behind &e%participant_count% &6of you. Good luck."
-  victory:
-    - "&6⚔ The Buried Throne has fallen! &e%last_hit_player% &6struck the final blow against &c%boss_name%&6!"
-  failure:
-    - "&fThe defenders of The Buried Throne failed to slay &c%boss_name%&f. It escaped into the dark. Try again next time the goal is reached."
 
 # ---------------------------------------------------------------------------------------------------------------
 # Rooms. Ids refer to mobs and bosses (mobs.yml), doors, regions and points (setup.yml). The numbers of mobs are for
@@ -73,7 +65,8 @@ announcements:
 #   spawn-group:  the point group mobs rise out of
 #   waves:        in order. A wave ends when all of it is dead
 #   miniboss / miniboss-point: room 2. It rises at that point after the last wave
-#   guards / guard-group / boss / boss-point: room 3. The guards come first, then the storm, then the boss rises at
+#   chest-group:  the point group the artifacts hide in (room1: chests, room2: chests_room2)
+#   guard-group / boss / boss-point: room 3. The guard waves come first, then the storm, then the boss rises at
 #                 the first boss-point. The others are where it moves to
 rooms:
   room1:
@@ -82,13 +75,14 @@ rooms:
     seal: door_room1
     core: room1_core
     spawn-group: room1
+    chest-group: chests
     waves:
       - name: "Wave 1"
         mobs: {hollow_acolyte: 5}
       - name: "Wave 2"
-        mobs: {withered_scribe: 4, hollow_acolyte: 2}
+        mobs: {withered_scribe: 3, hollow_acolyte: 2, ember_imp: 2}
       - name: "Wave 3"
-        mobs: {bound_wraith: 4}
+        mobs: {bound_wraith: 3, gloom_lurker: 2, hollow_acolyte: 2}
 
   room2:
     level: 2
@@ -96,17 +90,18 @@ rooms:
     seal: door_room2
     core: room2_core
     spawn-group: room2
+    chest-group: chests_room2
     waves:
       - name: "Wave 1"
-        mobs: {crimson_thrall: 5}
+        mobs: {crimson_thrall: 4, plague_bearer: 2}
       - name: "Wave 2"
-        mobs: {ashen_deadeye: 4, crimson_thrall: 2}
+        mobs: {ashen_deadeye: 3, crimson_thrall: 2, frost_husk: 2}
       - name: "Wave 3"
-        mobs: {sanctum_reaver: 4}
+        mobs: {sanctum_reaver: 3, blink_stalker: 2, cinder_bomber: 2}
       - name: "Wave 4"
-        mobs: {blightguard_sentinel: 3}
+        mobs: {blightguard_sentinel: 3, veil_priest: 1, plague_bearer: 2}
       - name: "Wave 5"
-        mobs: {nightmarch_vindicator: 3, nightmarch_skeleton: 3}
+        mobs: {nightmarch_vindicator: 2, nightmarch_skeleton: 3, blink_stalker: 2, cinder_bomber: 2}
     miniboss: bloodwoken
     miniboss-point: altar
 
@@ -115,8 +110,17 @@ rooms:
     door: door_room3
     seal: door_room3
     core: room3_core
+    # the guards rise out of the lowered gold blocks (point group "guards"), weakest first
     guard-group: guards
-    guards: {throne_warden: 3}
+    waves:
+      - name: "Recruits"
+        mobs: {throne_recruit: 6}
+      - name: "Captains"
+        mobs: {throne_recruit: 4, throne_captain: 3, veil_priest: 1}
+      - name: "Wardens"
+        mobs: {throne_captain: 3, throne_warden: 3, cinder_bomber: 2}
+      - name: "Champions"
+        mobs: {throne_warden: 4, throne_champion: 2, blink_stalker: 2}
     boss: sovereign
     boss-point: boss
 

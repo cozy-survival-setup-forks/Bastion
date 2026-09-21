@@ -16,7 +16,7 @@ public final class Rooms {
 
     public record RoomDef(String id, int level, String door, String seal, boolean reopen, String core, String spawnGroup, List<WaveDef> waves,
                           String miniboss, String minibossPoint, String guardGroup, Map<String, Integer> guards,
-                          String boss, String bossPoint) {
+                          String boss, String bossPoint, String chestGroup) {
     }
 
     private final JavaPlugin plugin;
@@ -46,7 +46,7 @@ public final class Rooms {
             if (g != null) g.getKeys(false).forEach(k -> guards.put(k, g.getInt(k)));
             RoomDef room = new RoomDef(id, s.getInt("level", 1), s.getString("door"), s.getString("seal"), s.getBoolean("reopen", true), s.getString("core"),
                     s.getString("spawn-group", id), waves, s.getString("miniboss"), s.getString("miniboss-point"),
-                    s.getString("guard-group", "guards"), guards, s.getString("boss"), s.getString("boss-point", "boss"));
+                    s.getString("guard-group", "guards"), guards, s.getString("boss"), s.getString("boss-point", "boss"), s.getString("chest-group", id.equals("room1") ? "chests" : "chests_" + id));
             rooms.put(room.level(), room);
         }
     }

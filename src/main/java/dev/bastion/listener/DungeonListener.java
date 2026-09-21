@@ -76,8 +76,6 @@ public final class DungeonListener implements Listener {
         if (run == null || !run.inside()) return;
         if (dungeon.blocksMove(player, from, to)) {
             event.setCancelled(true);
-            Vector back = from.toVector().subtract(to.toVector()).setY(0);
-            if (back.lengthSquared() > 1e-6) player.setVelocity(back.normalize().multiply(0.35));
             long now = System.currentTimeMillis();
             if (now >= run.nextWarn) {
                 run.nextWarn = now + 2500;
@@ -168,11 +166,22 @@ public final class DungeonListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         stopBuilding(event.getPlayer(), event);
+        if (!event.isCancelled()) autosave(event.getPlayer(), event.getBlock());
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
         stopBuilding(event.getPlayer(), event);
+        if (!event.isCancelled()) autosave(event.getPlayer(), event.getBlock());
+    }
+
+    /** An admin building in the dungeon while it is idle: the saved snapshot follows what they do. */
+    private void autosave(Player player, org.bukkit.block.Block block) {
+        if (dungeon.state() != dev.bastion.dungeon.DungeonState.FUNDING || !player.hasPermission("dungeon.admin")) return;
+        if (!dungeon.regions.inType(block.getWorld().getName(), block.getX(), block.getY(), block.getZ(), dev.bastion.region.RegionType.DUNGEON)) return;
+        dungeon.editor.mark(block, key -> {
+            if (key != null) player.sendActionBar(dungeon.messages.text(key));
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -244,6 +253,7 @@ public final class DungeonListener implements Listener {
             Mobs.State attacker = dungeon.mobs.state(source);
             if (attacker != null) {
                 if (source instanceof LivingEntity le) dungeon.mobs.shove(attacker, le, player, System.currentTimeMillis());
+                dungeon.mobs.touch(attacker, player);
                 dungeon.dialogue.fireTo(Trigger.ON_PLAYER_HURT_BY_MOB, player, Map.of("player", player.getName()));
             }
         }
@@ -258,6 +268,7 @@ public final class DungeonListener implements Listener {
         // nothing they wear or carry drops, and no experience
         event.getDrops().clear();
         event.setDroppedExp(0);
+        if (state.trait == Mobs.Trait.BLAST) dungeon.mobs.blast(entity.getLocation());
         Player killer = entity.getKiller();
         if (dungeon.settings.topDamageCredit && !state.damage.isEmpty()) {
             UUID top = null;

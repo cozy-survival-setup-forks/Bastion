@@ -30,6 +30,8 @@ public final class Waves {
     private final ArrayDeque<String> queue = new ArrayDeque<>();
     private final Set<UUID> alive = new HashSet<>();
     private int cap = 8;
+    private int hardCap = 40;
+    private int capPerPlayer = 2;
     private long nextWaveAt;
     private boolean running, resting;
     private Runnable cleared;
@@ -48,6 +50,11 @@ public final class Waves {
      * @param waveStarted told the number of the wave (from 1) as it begins
      * @param cleared told once, when the last wave is dead
      */
+    public void limits(int hardCap, int capPerPlayer) {
+        this.hardCap = Math.max(1, hardCap);
+        this.capPerPlayer = Math.max(0, capPerPlayer);
+    }
+
     public void start(List<WaveDef> waves, String spawnGroup, int cap, double extraPerPlayer, long firstDelayMs,
                       BiConsumer<LivingEntity, Player> onKill, IntConsumer waveStarted, Runnable cleared) {
         stop();
@@ -100,7 +107,10 @@ public final class Waves {
             resting = false;
             beginWave();
         }
-        while (!queue.isEmpty() && alive.size() < cap) spawnOne();
+        // bigger parties get a higher cap too, up to a hard limit that protects the server
+        int limit = Math.min(hardCap, cap + capPerPlayer * (players - 1));
+        // a few at a time, so a big wave never lands in a single tick
+        for (int i = 0; i < 4 && !queue.isEmpty() && alive.size() < limit; i++) spawnOne();
         if (queue.isEmpty() && alive.isEmpty()) {
             if (wave >= waves.size()) {
                 finish();
@@ -124,8 +134,13 @@ public final class Waves {
 
     private void spawnOne() {
         String id = queue.poll();
-        Points.Spot spot = points.random(spawnGroup);
-        Location at = spot == null ? null : spot.at();
+        // a spot that is not in or over water, out of a few tries
+        Location at = null;
+        for (int tries = 0; tries < 12 && at == null; tries++) {
+            Points.Spot spot = points.random(spawnGroup);
+            Location candidate = spot == null ? null : spot.at();
+            if (candidate != null && Mobs.isDry(candidate)) at = candidate;
+        }
         if (at == null) {
             // nowhere to spawn: skip it rather than hang the wave forever
             return;

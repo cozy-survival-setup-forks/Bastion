@@ -158,6 +158,12 @@ public final class Doors {
         return List.copyOf(doors.keySet());
     }
 
+    /** The middle of a gate, x y z, or null. */
+    public double[] center(String id) {
+        Door d = doors.get(id);
+        return d == null ? null : new double[]{(d.minX + d.maxX + 1) / 2.0, d.minY, (d.minZ + d.maxZ + 1) / 2.0};
+    }
+
     public boolean exists(String id) {
         return doors.containsKey(id);
     }

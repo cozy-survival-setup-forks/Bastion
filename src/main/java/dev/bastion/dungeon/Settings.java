@@ -21,7 +21,7 @@ public final class Settings {
     public final double resetBudgetMs;
     public final String coinsCommand;
     public final int uiTicks;
-    public final List<String> startMessages, victoryMessages, failureMessages;
+    public final int hardCapMobs, capPerPlayer;
 
     public Settings(FileConfiguration c) {
         world = c.getString("world", "Dungeons");
@@ -46,9 +46,8 @@ public final class Settings {
         resetBudgetMs = Math.max(1, c.getDouble("reset.budget-ms-per-tick", 6));
         coinsCommand = c.getString("rewards.coins-command", "");
         uiTicks = Math.max(1, c.getInt("ui-update-ticks", 5));
-        startMessages = c.getStringList("announcements.start");
-        victoryMessages = c.getStringList("announcements.victory");
-        failureMessages = c.getStringList("announcements.failure");
+        hardCapMobs = Math.max(1, c.getInt("mobs.hard-cap", 40));
+        capPerPlayer = Math.max(0, c.getInt("mobs.max-active-per-player", 2));
     }
 
     private static long seconds(FileConfiguration c, String path, double fallback) {

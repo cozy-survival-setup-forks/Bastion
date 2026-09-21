@@ -80,6 +80,7 @@ public final class Bosses {
         final Set<UUID> shown = new HashSet<>();
         long nextAbilityAt;
         long busyUntil;
+        long darkUntil;
         boolean dying, lowTriggered, over;
         String forced;
         Player lastHit;
@@ -189,7 +190,7 @@ public final class Bosses {
             if (dead == null) return;
             finish(fight, killer, dead.getLocation());
         });
-        mobs.emerge(entity, ground, def.scale * 0.5, def.scale, () -> {
+        mobs.emerge(entity, ground, def.scale * 0.5, def.scale, Mobs.BOSS_STEPS, () -> {
             long now = System.currentTimeMillis();
             fight.busyUntil = 0;
             fight.nextAbilityAt = now + 4000;
@@ -210,6 +211,10 @@ public final class Bosses {
                 continue;
             }
             updateBar(fight);
+            // the Warden's own darkness is taken off again: the boss only blinds people on purpose, and briefly
+            if (now > fight.darkUntil) {
+                for (Player p : alive.get()) if (p.hasPotionEffect(PotionEffectType.DARKNESS)) p.removePotionEffect(PotionEffectType.DARKNESS);
+            }
             if (fight.dying || now < fight.busyUntil) continue;
 
             AttributeInstance max = fight.entity.getAttribute(Attribute.MAX_HEALTH);
@@ -286,7 +291,9 @@ public final class Bosses {
             if (n > 45) step[0] = 30;   // a safety net: never run longer than the sequence should
             Location center = base.clone().add(0, e.getHeight() / 2, 0);
             fx.particle(Particle.EXPLOSION, center, 3, 1.5, 1.5, 1.5, 0.05);
-            fx.particle(Particle.DRAGON_BREATH, center, 30, 1.2, 1.5, 1.2, 0.04);
+            // teal like the Warden itself, not the purple of the dragon
+            fx.particle(Particle.DUST, center, 30, 1.2, 1.5, 1.2, 0.04, new Particle.DustOptions(org.bukkit.Color.fromRGB(0x12, 0x9C, 0xA6), 1.6f));
+            fx.particle(Particle.SCULK_SOUL, center, 6, 1.0, 1.4, 1.0, 0.03);
             if (n == 10 || n == 20 || n == 26) {
                 Location strike = base.clone().add((Math.random() - 0.5) * 8, 0, (Math.random() - 0.5) * 8);
                 base.getWorld().strikeLightningEffect(strike);
@@ -438,6 +445,13 @@ public final class Bosses {
         ConfigurationSection p = a.params;
         double cap = fight.def.damageCap;
         switch (a.id) {
+            case "darkness" -> {
+                int seconds = p.getInt("seconds", 4);
+                fight.darkUntil = System.currentTimeMillis() + seconds * 1000L + 600;
+                fx.sound(Sound.ENTITY_WARDEN_HEARTBEAT, boss.getLocation(), 2f, 0.6f);
+                for (Player pl : alive.get()) pl.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, seconds * 20, 0, true, false));
+                return seconds * 1000L + 500;
+            }
             case "arrow_rain" -> {
                 arrowRain(fight, target, p, cap);
                 return 3500;
@@ -575,7 +589,7 @@ public final class Bosses {
             fx.particle(Particle.LARGE_SMOKE, here.clone().add(0, 0.2, 0), 6, 0.8, 0.1, 0.8, 0.02);
             if (step[0] < 8) return true;
             Mobs.hide(boss);
-            mobs.emerge(boss, to, fight.def.scale, fight.def.scale, () -> boss.setInvulnerable(false));
+            mobs.emerge(boss, to, fight.def.scale, fight.def.scale, Mobs.MOB_STEPS, () -> boss.setInvulnerable(false));
             return false;
         });
     }

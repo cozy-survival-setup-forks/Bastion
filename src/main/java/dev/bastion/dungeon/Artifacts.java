@@ -34,6 +34,7 @@ import java.util.function.Consumer;
 public final class Artifacts {
 
     public static final NamespacedKey ID = new NamespacedKey("bastion", "artifact");
+    public static final NamespacedKey RUN = new NamespacedKey("bastion", "run");
     public static final NamespacedKey SHOP = new NamespacedKey("bastion", "shop_currency");
 
     private record Template(String id, Material material, String name, List<String> lore, int model, boolean consume) {
@@ -55,6 +56,8 @@ public final class Artifacts {
     private final Set<String> room1Found = new LinkedHashSet<>();
     private final Set<String> dropped = new LinkedHashSet<>();
     private Consumer<Found> onFound = f -> { };
+    /** Marks the items of this run, so an artifact kept from an earlier one counts for nothing. */
+    private long runToken;
 
     public Artifacts(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -113,6 +116,7 @@ public final class Artifacts {
 
     public void newRun(int room1Count) {
         clear();
+        runToken = System.nanoTime();
         List<String> ids = new ArrayList<>(templates.keySet());
         Collections.shuffle(ids);
         int n = Math.min(room1Count, ids.size());
@@ -131,13 +135,30 @@ public final class Artifacts {
     }
 
     /** Hides the first room's artifacts in a random choice of the marked chests. Returns how many were hidden. */
-    public int hideRoom1(Points points) {
-        List<Points.Spot> spots = new ArrayList<>(points.get("chests"));
+    public int hideRoom1(Points points, String group) {
+        int placed = room1.size() - hide(points, group, room1).size();
+        if (placed < room1.size()) {
+            plugin.getLogger().warning("Only " + placed + " of " + room1.size() + " chest spots in the '" + group + "' point group are containers. Mark more.");
+            // artifacts with no chest to hide in are dropped by the mini-boss instead, so none can go missing
+            while (room1.size() > placed) room2.add(room1.remove(room1.size() - 1));
+        }
+        return placed;
+    }
+
+    /** Hides what is left of the second room's artifacts in its chests. Returns how many are hidden. */
+    public int hideRoom2(Points points, String group) {
+        List<String> left = new ArrayList<>();
+        for (String id : room2) if (!found.contains(id)) left.add(id);
+        return left.size() - hide(points, group, left).size();
+    }
+
+    /** Puts each id in a random chest spot of the group. Returns the ids that found no spot. */
+    private List<String> hide(Points points, String group, List<String> ids) {
+        List<Points.Spot> spots = new ArrayList<>(points.get(group));
         Collections.shuffle(spots);
-        int wanted = room1.size();
-        int placed = 0;
+        List<String> unplaced = new ArrayList<>(ids);
         for (Points.Spot spot : spots) {
-            if (placed >= wanted) break;
+            if (unplaced.isEmpty()) break;
             Location at = spot.at();
             if (at == null) continue;
             Block block = at.getBlock();
@@ -151,19 +172,14 @@ public final class Artifacts {
                 }
             }
             if (!(block.getState() instanceof Container container)) continue;
-            String id = room1.get(placed);
+            if (hidden.containsKey(key(block))) continue;
+            String id = unplaced.remove(0);
             container.getInventory().clear();
             container.getInventory().setItem(container.getInventory().getSize() / 2, make(templates.get(id), null, 0));
             hidden.put(key(block), id);
             hiddenLocations.put(key(block), block.getLocation());
-            placed++;
         }
-        if (placed < wanted) {
-            plugin.getLogger().warning("Only " + placed + " of " + wanted + " chest spots in the 'chests' point group are containers. Mark more.");
-            // artifacts with no chest to hide in are dropped by the mini-boss instead, so none can go missing
-            while (room1.size() > placed) room2.add(room1.remove(room1.size() - 1));
-        }
-        return placed;
+        return unplaced;
     }
 
     private static BlockFace openSide(Block block) {
@@ -178,6 +194,10 @@ public final class Artifacts {
         return hiddenLocations.values();
     }
 
+    public int hiddenLeft() {
+        return hidden.size();
+    }
+
     /** True if this block hides an artifact nobody has found yet. */
     public boolean isHidden(Block block) {
         return hidden.containsKey(key(block));
@@ -189,7 +209,7 @@ public final class Artifacts {
         if (id == null) return;
         hiddenLocations.remove(key(block));
         found.add(id);
-        room1Found.add(id);
+        if (room1.contains(id)) room1Found.add(id);
         if (block.getState() instanceof Container container) {
             container.getInventory().clear();
             container.getInventory().setItem(container.getInventory().getSize() / 2, make(templates.get(id), finder, found.size()));
@@ -226,7 +246,7 @@ public final class Artifacts {
     /** Someone picked up an item that may be a dropped artifact. */
     public void pickedUp(Player player, ItemStack item) {
         String id = idOf(item);
-        if (id == null || !dropped.remove(id)) return;
+        if (id == null || !ofThisRun(item) || !dropped.remove(id)) return;
         found.add(id);
         ItemMeta meta = item.getItemMeta();
         Template t = templates.get(id);
@@ -250,6 +270,7 @@ public final class Artifacts {
         meta.lore(lore);
         if (t.model > 0) meta.setCustomModelData(t.model);
         meta.getPersistentDataContainer().set(ID, PersistentDataType.STRING, t.id);
+        meta.getPersistentDataContainer().set(RUN, PersistentDataType.LONG, runToken);
         item.setItemMeta(meta);
         return item;
     }
@@ -262,6 +283,11 @@ public final class Artifacts {
         meta.getPersistentDataContainer().set(SHOP, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private boolean ofThisRun(ItemStack item) {
+        Long token = item.getItemMeta().getPersistentDataContainer().get(RUN, PersistentDataType.LONG);
+        return token != null && token == runToken;
     }
 
     public static String idOf(ItemStack item) {

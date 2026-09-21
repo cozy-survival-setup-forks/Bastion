@@ -15,6 +15,11 @@
 #       FLICKER   1 to 2 seconds of invisibility when it drops below half health
 #       HURL      throws a snowball for a little damage and slowness (for ranged mobs)
 #       WAR_CRY   a short weakness pulse on nearby players when it spawns
+#       LEAP      jumps at a target that is a few blocks away
+#       BLINK     teleports behind its target
+#       WITHER_TOUCH / HUNGER_TOUCH / FROST_TOUCH   its hits also wither, starve or slow
+#       HEAL_PULSE  heals the mobs around it now and then
+#       BLAST     goes off when it dies, a short hard shove and a little damage, nothing broken
 
 mobs:
   # ---- room 1, the Athenaeum
@@ -175,6 +180,126 @@ mobs:
     tier: guards
     trait-chance: 0
 
+  # ---- more kinds, mixed into the waves
+  ember_imp:
+    name: "&#FF8A3D&lEMBER IMP"
+    type: ZOMBIE
+    baby: true
+    health: 18
+    damage: 4
+    speed: 1.35
+    hand: STONE_SWORD
+    tier: room1
+    trait-chance: 0.6
+    traits: [LEAP]
+
+  gloom_lurker:
+    name: "&#8E7CC3&lGLOOM LURKER"
+    type: STRAY
+    health: 28
+    damage: 5
+    head: CHAINMAIL_HELMET
+    hand: BOW
+    tier: room1
+    trait-chance: 1
+    traits: [FROST_TOUCH]
+
+  plague_bearer:
+    name: "&#9BD35A&lPLAGUE BEARER"
+    type: HUSK
+    health: 40
+    damage: 6
+    head: LEATHER_HELMET
+    chest: CHAINMAIL_CHESTPLATE
+    hand: IRON_AXE
+    tier: room2
+    trait-chance: 1
+    traits: [HUNGER_TOUCH]
+
+  frost_husk:
+    name: "&#7FD9FF&lFROST HUSK"
+    type: ZOMBIE
+    health: 44
+    damage: 8
+    head: IRON_HELMET
+    chest: IRON_CHESTPLATE
+    hand: IRON_SWORD
+    tier: room2
+    trait-chance: 1
+    traits: [FROST_TOUCH]
+
+  blink_stalker:
+    name: "&#D66BFF&lBLINK STALKER"
+    type: ZOMBIE
+    health: 38
+    damage: 9
+    speed: 1.05
+    hand: DIAMOND_SWORD
+    tier: room2
+    trait-chance: 1
+    traits: [BLINK]
+
+  cinder_bomber:
+    name: "&#FF5A1F&lCINDER BOMBER"
+    type: ZOMBIE
+    health: 30
+    damage: 6
+    speed: 1.2
+    head: GOLDEN_HELMET
+    tier: room2
+    trait-chance: 1
+    traits: [BLAST]
+
+  veil_priest:
+    name: "&#F0E68C&lVEIL PRIEST"
+    type: WITCH
+    health: 46
+    damage: 0
+    tier: room2
+    trait-chance: 1
+    traits: [HEAL_PULSE]
+
+  throne_recruit:
+    name: "&#E0C060&lTHRONE RECRUIT"
+    type: PIGLIN_BRUTE
+    health: 34
+    damage: 8
+    head: GOLDEN_HELMET
+    chest: CHAINMAIL_CHESTPLATE
+    hand: GOLDEN_SWORD
+    offhand: SHIELD
+    tier: guards
+    trait-chance: 0
+
+  throne_captain:
+    name: "&#FFC933&lTHRONE CAPTAIN"
+    type: PIGLIN_BRUTE
+    health: 56
+    damage: 12
+    head: IRON_HELMET
+    chest: IRON_CHESTPLATE
+    legs: IRON_LEGGINGS
+    hand: IRON_AXE
+    offhand: SHIELD
+    tier: guards
+    trait-chance: 0.5
+    traits: [SHOVE, WITHER_TOUCH]
+
+  throne_champion:
+    name: "&#FF9F1C&lTHRONE CHAMPION"
+    type: PIGLIN_BRUTE
+    health: 120
+    damage: 20
+    head: NETHERITE_HELMET
+    chest: NETHERITE_CHESTPLATE
+    legs: NETHERITE_LEGGINGS
+    feet: NETHERITE_BOOTS
+    hand: NETHERITE_AXE
+    offhand: SHIELD
+    tier: guards
+    trait-chance: 1
+    traits: [WITHER_TOUCH, WAR_CRY]
+
   # ---- called up by the bosses
   bloodwoken_vex:
     name: "&#FF6B6B&lBLOODWOKEN VEX"
@@ -295,3 +420,7 @@ bosses:
         cooldown: 22
         seconds: 2
         then: arrow_rain
+      darkness:
+        weight: 1
+        cooldown: 60
+        seconds: 4

@@ -429,7 +429,7 @@ public final class DungeonCommand implements TabExecutor {
         String action = a[0].toLowerCase(Locale.ROOT);
         Player p = action.equals("add") ? player(sender) : null;
         if (action.equals("add") && p == null) return;
-        String group = chest ? "chests" : a.length > 1 ? a[1].toLowerCase(Locale.ROOT) : null;
+        String group = chest ? chestGroup(a) : a.length > 1 ? a[1].toLowerCase(Locale.ROOT) : null;
         if (group == null && !action.equals("list")) {
             say(sender, "usage-point");
             return;
@@ -444,6 +444,8 @@ public final class DungeonCommand implements TabExecutor {
                         say(sender, "look-at-chest");
                         return;
                     }
+                    // a container is the spot itself; a floor block means the space above it, where a chest goes
+                    if (!(target.getState() instanceof org.bukkit.block.Container) && target.getType().isSolid()) target = target.getRelative(org.bukkit.block.BlockFace.UP);
                     at = target.getLocation().add(0.5, 0, 0.5);
                 }
                 dungeon.points.add(group, at);
@@ -463,6 +465,12 @@ public final class DungeonCommand implements TabExecutor {
             case "clear" -> say(sender, dungeon.points.clear(group) ? "point-cleared" : "point-unknown");
             default -> say(sender, "usage-point");
         }
+    }
+
+    /** "add room2" means the point group chests_room2. The last word can name the room, and room1 is the default. */
+    private static String chestGroup(String[] a) {
+        String last = a.length > 1 ? a[a.length - 1].toLowerCase(Locale.ROOT) : "";
+        return last.equals("room2") ? "chests_room2" : "chests";
     }
 
     private void paste(CommandSender sender, String[] a) {
