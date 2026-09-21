@@ -601,6 +601,7 @@ public final class Dungeon {
         Location at = spot == null ? null : spot.at();
         if (room.miniboss() == null || at == null) {
             minibossDead = true;
+            unseal(2);   // no mini-boss to fight, so the room is done
             artifacts.dropRoom2(playerCenter(), new ArrayList<>(players()), settings.autoDistribute);
             checkThroneUnlock();
             return;
