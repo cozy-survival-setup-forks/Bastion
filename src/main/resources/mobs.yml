@@ -1,0 +1,158 @@
+# Bastion - mobs.yml
+# Every mob is a vanilla entity dressed here. Nothing they wear ever drops, and they all rise out of the ground.
+#
+#   type:          any living entity type
+#   name:          shown above it (& codes or MiniMessage)
+#   health:        max health, 0 keeps the vanilla value
+#   damage:        attack damage, 0 keeps the vanilla value
+#   speed:         movement speed multiplier
+#   head / chest / legs / feet / hand / offhand:  item names
+#   effects:       potion effects for as long as it lives, as EFFECT:level (0 is level I)
+#   tier:          which table in rewards.yml pays out when it dies
+#   traits / trait-chance:  one minor power, rolled at spawn with this chance. Later rooms use a higher chance.
+#       SHOVE     a small knockback on hit, at most every 8 seconds
+#       FLICKER   1-2 seconds of invisibility when it drops below half health
+#       HURL      throws a snowball for a little damage and slowness (for ranged mobs)
+#       WAR_CRY   a short weakness pulse on nearby players when it spawns
+
+mobs:
+  # ---- room 1, the Athenaeum
+  hollow_acolyte:
+    name: "&7Hollow Acolyte"
+    type: ZOMBIE
+    health: 20
+    speed: 1.1
+    head: LEATHER_HELMET
+    chest: LEATHER_CHESTPLATE
+    legs: LEATHER_LEGGINGS
+    feet: LEATHER_BOOTS
+    hand: WOODEN_SWORD
+    effects: ["SPEED:0"]
+    tier: room1
+    trait-chance: 0.08
+    traits: [SHOVE]
+
+  withered_scribe:
+    name: "&8Withered Scribe"
+    type: SKELETON
+    health: 20
+    head: CHAINMAIL_HELMET
+    chest: CHAINMAIL_CHESTPLATE
+    legs: CHAINMAIL_LEGGINGS
+    feet: CHAINMAIL_BOOTS
+    hand: BOW
+    tier: room1
+    trait-chance: 0.10
+    traits: [HURL, FLICKER]
+
+  bound_wraith:
+    name: "&3Bound Wraith"
+    type: HUSK
+    health: 26
+    head: IRON_HELMET
+    chest: IRON_CHESTPLATE
+    legs: IRON_LEGGINGS
+    feet: IRON_BOOTS
+    hand: IRON_SWORD
+    effects: ["STRENGTH:0"]
+    tier: room1
+    trait-chance: 0.12
+    traits: [SHOVE, WAR_CRY]
+
+  # ---- room 2, the Sanctum: harder gear, and about double the chance of a trait
+  crimson_thrall:
+    name: "&4Crimson Thrall"
+    type: ZOMBIE
+    health: 30
+    head: IRON_HELMET
+    chest: IRON_CHESTPLATE
+    legs: IRON_LEGGINGS
+    feet: IRON_BOOTS
+    hand: IRON_SWORD
+    effects: ["STRENGTH:0"]
+    tier: room2
+    trait-chance: 0.18
+    traits: [SHOVE, WAR_CRY]
+
+  ashen_deadeye:
+    name: "&7Ashen Deadeye"
+    type: SKELETON
+    health: 26
+    head: IRON_HELMET
+    chest: IRON_CHESTPLATE
+    legs: IRON_LEGGINGS
+    feet: IRON_BOOTS
+    hand: BOW
+    tier: room2
+    trait-chance: 0.20
+    traits: [HURL, FLICKER]
+
+  sanctum_reaver:
+    name: "&cSanctum Reaver"
+    type: VINDICATOR
+    health: 32
+    speed: 1.15
+    hand: DIAMOND_AXE
+    effects: ["SPEED:0"]
+    tier: room2
+    trait-chance: 0.20
+    traits: [SHOVE]
+
+  blightguard_sentinel:
+    name: "&2Blightguard Sentinel"
+    type: PIGLIN_BRUTE
+    health: 40
+    head: DIAMOND_HELMET
+    chest: DIAMOND_CHESTPLATE
+    legs: DIAMOND_LEGGINGS
+    feet: DIAMOND_BOOTS
+    hand: MACE
+    tier: room2
+    trait-chance: 0.22
+    traits: [SHOVE]
+
+  nightmarch_vindicator:
+    name: "&4Nightmarch Vindicator"
+    type: VINDICATOR
+    health: 36
+    head: DIAMOND_HELMET
+    chest: DIAMOND_CHESTPLATE
+    hand: DIAMOND_AXE
+    effects: ["STRENGTH:0", "SPEED:0"]
+    tier: room2
+    trait-chance: 0.24
+    traits: [SHOVE, WAR_CRY]
+
+  nightmarch_skeleton:
+    name: "&4Nightmarch Archer"
+    type: SKELETON
+    health: 30
+    head: DIAMOND_HELMET
+    chest: DIAMOND_CHESTPLATE
+    hand: BOW
+    effects: ["STRENGTH:0", "SPEED:0"]
+    tier: room2
+    trait-chance: 0.24
+    traits: [HURL, FLICKER]
+
+  # ---- room 3, the Throne
+  throne_warden:
+    name: "&6Throne Warden"
+    type: PIGLIN_BRUTE
+    health: 60
+    head: DIAMOND_HELMET
+    chest: DIAMOND_CHESTPLATE
+    legs: DIAMOND_LEGGINGS
+    feet: DIAMOND_BOOTS
+    hand: MACE
+    offhand: SHIELD
+    speed: 0.9
+    tier: guards
+    trait-chance: 0
+
+  # ---- called up by the bosses
+  bloodwoken_vex:
+    name: "&cBloodwoken Vex"
+    type: VEX
+    health: 14
+    tier: none

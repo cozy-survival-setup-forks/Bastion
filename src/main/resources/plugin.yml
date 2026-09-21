@@ -1,0 +1,35 @@
+name: Bastion
+version: '${version}'
+main: dev.bastion.BastionPlugin
+api-version: '1.21'
+description: A crowdfunded, instanced dungeon for the whole server
+load: POSTWORLD
+softdepend:
+  - Vault
+  - PlaceholderAPI
+
+commands:
+  dungeon:
+    description: The dungeon menu and tools
+    usage: /<command> [menu|status|contribute|enter|leave]
+    aliases: [bastion]
+
+permissions:
+  dungeon.use:
+    description: Open the menu, contribute and enter
+    default: true
+  dungeon.admin:
+    description: Reload, force start, force end and reset
+    default: op
+  dungeon.wand:
+    description: The region wand and the region, door and point tools
+    default: op
+  dungeon.bypass.commands:
+    description: Use any command while in the dungeon
+    default: op
+  dungeon.spy:
+    description: See dungeon chat from outside
+    default: op
+  dungeon.bypass.entry:
+    description: Stand in the dungeon without being in the run
+    default: op

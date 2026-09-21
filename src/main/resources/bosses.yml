@@ -1,0 +1,111 @@
+# Bastion - bosses.yml
+# A boss is a mob (same keys as mobs.yml: type, name, health, damage, gear...) plus:
+#   scale:            how big it grows while it rises. 1 is normal size.
+#   bossbar:          color (PINK BLUE RED GREEN YELLOW PURPLE WHITE) and style (PROGRESS NOTCHED_6 NOTCHED_10 NOTCHED_12 NOTCHED_20)
+#   ability-gap-min/max:  seconds between two abilities, picked at random
+#   low-health:       the share of health at which it grows angry (and the "low health" line fires)
+#   low-health-scale: how much bigger it gets then, as a multiplier
+#   dramatic-death:   the Ender-Dragon-style ending (shakes, bursts, lightning) instead of just dying
+#   damage-cap:       the most health any one scripted ability takes from a player. It never takes the last point.
+#   abilities:        picked at random by weight when off cooldown. cooldown is in seconds. once: true = once per fight.
+
+bosses:
+  bloodwoken:
+    name: "&cThe Bloodwoken"
+    type: EVOKER
+    health: 320
+    scale: 1.5
+    tier: miniboss
+    bossbar: {color: RED, style: NOTCHED_10}
+    ability-gap-min: 5
+    ability-gap-max: 9
+    low-health: 0.3
+    low-health-scale: 1.1
+    dramatic-death: false
+    damage-cap: 4
+    abilities:
+      ground_slam:
+        weight: 4
+        cooldown: 10
+        radius: 4
+        damage: 4
+        knockback: 1.1
+      summon_vex:
+        weight: 3
+        cooldown: 30
+        once: true
+        mob: bloodwoken_vex
+        count: 3
+        height: 1.5
+      vanish:
+        weight: 2
+        cooldown: 20
+        min: 3
+        max: 5
+      warning_volley:
+        weight: 3
+        cooldown: 12
+        arrows: 4
+        damage: 1
+
+  sovereign:
+    name: "&5The Buried Sovereign"
+    type: WARDEN
+    health: 900
+    damage: 14
+    scale: 2.2
+    tier: boss
+    bossbar: {color: PURPLE, style: NOTCHED_20}
+    ability-gap-min: 5
+    ability-gap-max: 9
+    low-health: 0.3
+    low-health-scale: 1.12
+    dramatic-death: true
+    damage-cap: 6
+    abilities:
+      arrow_rain:
+        weight: 3
+        cooldown: 18
+        radius: 4
+        waves: 8
+        per-wave: 2
+        damage: 1.2
+      vanish:
+        weight: 2
+        cooldown: 25
+        min: 5
+        max: 10
+      fireballs:
+        weight: 3
+        cooldown: 14
+        count: 3
+      thunder_strike:
+        weight: 3
+        cooldown: 12
+        damage: 6
+      reposition:
+        weight: 2
+        cooldown: 30
+      sonic_shriek:
+        weight: 3
+        cooldown: 16
+        range: 16
+        angle: 25
+        damage: 8
+      summon_wraiths:
+        weight: 2
+        cooldown: 40
+        mob: bound_wraith
+        count: 2
+      ground_slam:
+        weight: 3
+        cooldown: 14
+        radius: 5
+        damage: 5
+        knockback: 1.4
+        fatigue-seconds: 5
+      chain_grasp:
+        weight: 2
+        cooldown: 22
+        seconds: 2
+        then: arrow_rain

@@ -1,0 +1,55 @@
+# Bastion - rooms.yml
+# What each room holds. Ids refer to other files: mobs (mobs.yml), bosses (bosses.yml), doors (doors.yml),
+# point groups (points.yml). The numbers of mobs are for one player; bigger parties get more (config.yml).
+#
+#   door:        opens when the room is unlocked
+#   seal:        closes behind the players once all of them are in. It may be the same door as `door`.
+#   reopen:      true = the seal opens again when the room is done (so players are not shut in)
+#   spawn-group: the point group mobs rise out of
+#   waves:       in order. A wave ends when all of it is dead.
+#   miniboss / miniboss-point: room 2 only. It rises at that point after the last wave.
+#   guards / guard-group / boss / boss-point: room 3 only. The guards come first; when all are dead the storm
+#                comes and the boss rises at boss-point. More boss points are where it repositions to.
+
+rooms:
+  room1:
+    level: 1
+    door: door_room1
+    seal: door_room1
+    spawn-group: room1
+    waves:
+      - name: "Wave 1"
+        mobs: {hollow_acolyte: 5}
+      - name: "Wave 2"
+        mobs: {withered_scribe: 4, hollow_acolyte: 2}
+      - name: "Wave 3"
+        mobs: {bound_wraith: 4}
+
+  room2:
+    level: 2
+    door: door_room2
+    seal: door_room2
+    reopen: true
+    spawn-group: room2
+    waves:
+      - name: "Wave 1"
+        mobs: {crimson_thrall: 5}
+      - name: "Wave 2"
+        mobs: {ashen_deadeye: 4, crimson_thrall: 2}
+      - name: "Wave 3"
+        mobs: {sanctum_reaver: 4}
+      - name: "Wave 4"
+        mobs: {blightguard_sentinel: 3}
+      - name: "Wave 5"
+        mobs: {nightmarch_vindicator: 3, nightmarch_skeleton: 3}
+    miniboss: bloodwoken
+    miniboss-point: altar
+
+  room3:
+    level: 3
+    door: door_room3
+    seal: door_room3
+    guard-group: guards
+    guards: {throne_warden: 3}
+    boss: sovereign
+    boss-point: boss

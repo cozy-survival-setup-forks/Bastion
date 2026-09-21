@@ -1,0 +1,56 @@
+# Bastion - points.yml (default setup). world x y z yaw pitch
+#   anchor  where players arrive       room1 / room2  where mobs rise out of the ground
+#   altar   where the mini-boss rises   guards         the throne room guards
+#   boss    where the final boss rises (first) and repositions to (the rest)
+#   chests  the barrels an artifact can be hidden in (more spots than artifacts)
+points:
+  anchor:
+    - "Dungeons -50.5 143 -221.5 90.0 0.0"
+  room1:
+    - "Dungeons -127.5 143 -246.5 0.0 0.0"
+    - "Dungeons -108.5 143 -228.5 0.0 0.0"
+    - "Dungeons -150.5 143 -234.5 0.0 0.0"
+    - "Dungeons -153.5 143 -218.5 0.0 0.0"
+    - "Dungeons -100.5 143 -221.5 0.0 0.0"
+    - "Dungeons -118.5 143 -244.5 0.0 0.0"
+    - "Dungeons -141.5 143 -199.5 0.0 0.0"
+    - "Dungeons -138.5 143 -243.5 0.0 0.0"
+    - "Dungeons -124.5 143 -201.5 0.0 0.0"
+    - "Dungeons -106.5 143 -220.5 0.0 0.0"
+    - "Dungeons -150.5 143 -211.5 0.0 0.0"
+    - "Dungeons -107.5 143 -211.5 0.0 0.0"
+    - "Dungeons -143.5 143 -239.5 0.0 0.0"
+  room2:
+    - "Dungeons -128.5 143 -179.5 0.0 0.0"
+    - "Dungeons -128.5 143 -174.5 0.0 0.0"
+    - "Dungeons -116.5 143 -174.5 0.0 0.0"
+    - "Dungeons -135.5 143 -176.5 0.0 0.0"
+    - "Dungeons -125.5 143 -171.5 0.0 0.0"
+    - "Dungeons -120.5 143 -177.5 0.0 0.0"
+    - "Dungeons -134.5 143 -172.5 0.0 0.0"
+    - "Dungeons -131.5 143 -169.5 0.0 0.0"
+    - "Dungeons -132.5 143 -179.5 0.0 0.0"
+  altar:
+    - "Dungeons -142.5 144 -175.5 0.0 0.0"
+  guards:
+    - "Dungeons -175.5 143 -224.5 90.0 0.0"
+    - "Dungeons -186.5 143 -225.5 90.0 0.0"
+    - "Dungeons -189.5 143 -219.5 90.0 0.0"
+    - "Dungeons -176.5 143 -219.5 90.0 0.0"
+    - "Dungeons -182.5 143 -223.5 90.0 0.0"
+    - "Dungeons -183.5 143 -219.5 90.0 0.0"
+  boss:
+    - "Dungeons -192.5 143 -221.5 90.0 0.0"
+    - "Dungeons -184.5 143 -226.5 90.0 0.0"
+    - "Dungeons -184.5 143 -216.5 90.0 0.0"
+    - "Dungeons -174.5 143 -221.5 90.0 0.0"
+    - "Dungeons -190.5 143 -226.5 90.0 0.0"
+    - "Dungeons -190.5 143 -216.5 90.0 0.0"
+  chests:
+    - "Dungeons -155.5 143 -234.5 0.0 0.0"
+    - "Dungeons -153.5 143 -205.5 0.0 0.0"
+    - "Dungeons -108.5 143 -202.5 0.0 0.0"
+    - "Dungeons -144.5 143 -247.5 0.0 0.0"
+    - "Dungeons -119.5 143 -193.5 0.0 0.0"
+    - "Dungeons -143.5 143 -236.5 0.0 0.0"
+    - "Dungeons -105.5 143 -214.5 0.0 0.0"

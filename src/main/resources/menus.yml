@@ -1,0 +1,112 @@
+# Bastion - menus.yml
+# Menus in the style of DeluxeMenus. Open the main one with /dungeon (or /dungeon menu).
+#
+# A menu is a title, a number of rows (1-6) and items. An item has a slot (0 is top left) and can appear several
+# times for the same slot: the one with the highest priority whose `states` include the current dungeon state wins.
+# That is how "Contribute" turns into "Dungeon in progress" while a run is going.
+#
+# Item keys: material, name, lore, glow, amount, priority, states, actions, left-actions, right-actions
+# states: FUNDING OPEN LOCKED COUNTDOWN ROOM1_TRAVEL ROOM1_COMBAT ROOM1_LOOT ROOM2_TRAVEL ROOM2_COMBAT ROOM3_TRAVEL
+#         ROOM3_COMBAT VICTORY CELEBRATION FAILED RESETTING   (leave out to show in every state)
+#
+# Actions, one per line as  [TAG] argument :
+#   [COMMAND] balance          the player runs a command
+#   [CONSOLE] eco give %player% 100    the console runs a command
+#   [MESSAGE] text             a message to the player
+#   [OPEN_MENU] other_menu     open another menu
+#   [CONTRIBUTE] 500           put 500 towards the goal
+#   [CONTRIBUTE_PROMPT]        the player types an amount in chat
+#   [ENTER]  [LEAVE]  [CLOSE]  [SOUND] entity.player.levelup
+# Text can use %player%, the %dungeon_...% placeholders (and %dungeon_goal_bar%) and any PlaceholderAPI placeholder.
+#
+# The bottom row (slots 27-35) is left free on purpose. Add your own items there, exactly like a DeluxeMenus page:
+# a rules book, a Discord link, a leaderboard, a shortcut to the dungeon shop. For example:
+#
+#   shop:
+#     slot: 31
+#     material: EMERALD
+#     name: "&aDungeon Shop"
+#     actions:
+#       - "[COMMAND] dm open dungeon_shop"
+
+menus:
+  dungeon_main:
+    title: "&4The Buried Throne"
+    rows: 4
+    items:
+      filler:
+        slots: ["0-35"]
+        priority: -1
+        material: BLACK_STAINED_GLASS_PANE
+        name: " "
+      contribute:
+        slot: 10
+        priority: 2
+        states: [FUNDING]
+        material: EMERALD
+        name: "&aContribute"
+        glow: true
+        lore:
+          - "&7Pool money with the whole server."
+          - "&7When the goal is reached the dungeon opens."
+          - ""
+          - "%dungeon_goal_bar%"
+          - "&f%dungeon_goal_current% &7/ &f%dungeon_goal_total% &8(%dungeon_goal_percent%%)"
+          - ""
+          - "&eLeft click &7to give 500"
+          - "&eRight click &7to type an amount"
+        left-actions:
+          - "[CONTRIBUTE] 500"
+        right-actions:
+          - "[CONTRIBUTE_PROMPT]"
+      contribute_locked:
+        slot: 10
+        priority: 1
+        material: GRAY_DYE
+        name: "&8Contribute"
+        lore:
+          - "&cDungeon in progress"
+          - "&7Funding opens again when it is over."
+      info:
+        slot: 12
+        material: BOOK
+        name: "&6How it works"
+        lore:
+          - "&71. The server pools money to a goal."
+          - "&72. The dungeon opens for &f5 minutes&7. Anyone can join."
+          - "&73. Fight through &f3 rooms&7 and find &f9 artifacts&7."
+          - "&74. Collect them all to face the &5Buried Sovereign&7."
+          - ""
+          - "&7If you die you are sent back with everything you had."
+      enter:
+        slot: 14
+        priority: 2
+        states: [OPEN]
+        material: ENDER_EYE
+        name: "&5Enter the dungeon"
+        glow: true
+        lore:
+          - "&7Time left to join: &f%dungeon_join_time_left%"
+          - "&7Players inside: &f%dungeon_players_inside%"
+          - ""
+          - "&eClick &7to enter"
+        actions:
+          - "[ENTER]"
+      enter_locked:
+        slot: 14
+        priority: 1
+        material: ENDER_PEARL
+        name: "&8Enter the dungeon"
+        lore:
+          - "&7Only open once the goal is reached."
+      status:
+        slot: 16
+        material: CLOCK
+        name: "&bStatus"
+        lore:
+          - "&7State: &f%dungeon_state%"
+          - "&7Funding: &f%dungeon_goal_current% &7/ &f%dungeon_goal_total%"
+          - "&7Players inside: &f%dungeon_players_inside%"
+          - "&7Artifacts found: &f%dungeon_artifacts_found%&7/&f%dungeon_artifacts_total%"
+          - "&7Time left: &f%dungeon_run_time_left%"
+          - "&7Last result: &f%dungeon_last_result%"
