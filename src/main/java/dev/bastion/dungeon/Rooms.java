@@ -1,10 +1,8 @@
 package dev.bastion.dungeon;
 
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,7 +14,7 @@ public final class Rooms {
     public record WaveDef(String name, Map<String, Integer> mobs) {
     }
 
-    public record RoomDef(String id, int level, String door, String seal, boolean reopen, String spawnGroup, List<WaveDef> waves,
+    public record RoomDef(String id, int level, String door, String seal, boolean reopen, String core, String spawnGroup, List<WaveDef> waves,
                           String miniboss, String minibossPoint, String guardGroup, Map<String, Integer> guards,
                           String boss, String bossPoint) {
     }
@@ -30,9 +28,7 @@ public final class Rooms {
 
     public void load() {
         rooms.clear();
-        File file = new File(plugin.getDataFolder(), "rooms.yml");
-        if (!file.exists()) plugin.saveResource("rooms.yml", false);
-        ConfigurationSection all = YamlConfiguration.loadConfiguration(file).getConfigurationSection("rooms");
+        ConfigurationSection all = plugin.getConfig().getConfigurationSection("rooms");
         if (all == null) return;
         for (String id : all.getKeys(false)) {
             ConfigurationSection s = all.getConfigurationSection(id);
@@ -48,7 +44,7 @@ public final class Rooms {
             Map<String, Integer> guards = new LinkedHashMap<>();
             ConfigurationSection g = s.getConfigurationSection("guards");
             if (g != null) g.getKeys(false).forEach(k -> guards.put(k, g.getInt(k)));
-            RoomDef room = new RoomDef(id, s.getInt("level", 1), s.getString("door"), s.getString("seal"), s.getBoolean("reopen", false),
+            RoomDef room = new RoomDef(id, s.getInt("level", 1), s.getString("door"), s.getString("seal"), s.getBoolean("reopen", true), s.getString("core"),
                     s.getString("spawn-group", id), waves, s.getString("miniboss"), s.getString("miniboss-point"),
                     s.getString("guard-group", "guards"), guards, s.getString("boss"), s.getString("boss-point", "boss"));
             rooms.put(room.level(), room);

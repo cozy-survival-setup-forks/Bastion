@@ -288,7 +288,8 @@ public final class Mobs {
         Location start = ground.clone().subtract(0, SINK, 0);
         entity.teleport(start);
         setScale(entity, fromScale);
-        fx.sound(Sound.ENTITY_WARDEN_DIG, ground, 1f, 0.9f);
+        fx.sound(Sound.BLOCK_DEEPSLATE_BREAK, ground, 1.2f, 0.6f);
+        fx.sound(Sound.BLOCK_GRAVEL_BREAK, ground, 1f, 0.5f);
         emerging.add(new Emerging(entity, ground, fromScale, toScale, EMERGE_STEPS, ready));
         if (emergeTask == null) {
             emergeTask = Bukkit.getScheduler().runTaskTimer(plugin, this::emergeStep, EMERGE_PERIOD, EMERGE_PERIOD);
@@ -318,7 +319,7 @@ public final class Mobs {
             if (e.step >= e.total) {
                 it.remove();
                 release(e.entity);
-                fx.sound(Sound.ENTITY_WARDEN_EMERGE, e.ground, 0.7f, 1.1f);
+                fx.sound(Sound.ENTITY_ZOMBIE_VILLAGER_CURE, e.ground, 0.8f, 0.6f);
                 e.ready.run();
             }
         }

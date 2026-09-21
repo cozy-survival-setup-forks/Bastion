@@ -119,8 +119,8 @@ public final class Bosses {
 
     public void load() {
         defs.clear();
-        File file = new File(plugin.getDataFolder(), "bosses.yml");
-        if (!file.exists()) plugin.saveResource("bosses.yml", false);
+        File file = new File(plugin.getDataFolder(), "mobs.yml");
+        if (!file.exists()) plugin.saveResource("mobs.yml", false);
         ConfigurationSection all = YamlConfiguration.loadConfiguration(file).getConfigurationSection("bosses");
         if (all == null) return;
         for (String id : all.getKeys(false)) {
@@ -565,7 +565,7 @@ public final class Bosses {
         Location to = spots.get(ThreadLocalRandom.current().nextInt(spots.size())).at();
         boss.setAI(false);
         boss.setInvulnerable(true);
-        fx.sound(Sound.ENTITY_WARDEN_DIG, here, 1.5f, 0.7f);
+        fx.sound(Sound.BLOCK_DEEPSLATE_BREAK, here, 1.5f, 0.5f);
         int[] step = {0};
         tasks.every(2, () -> {
             if (!boss.isValid()) return false;

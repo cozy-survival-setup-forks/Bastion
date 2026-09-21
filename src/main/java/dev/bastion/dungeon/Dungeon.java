@@ -13,6 +13,7 @@ import dev.bastion.util.Fx;
 import dev.bastion.util.Slow;
 import dev.bastion.util.TaskBag;
 import dev.bastion.util.Text;
+import dev.bastion.util.Titles;
 import dev.bastion.world.Points;
 import dev.bastion.world.SchemFile;
 import dev.bastion.world.Snapshot;
@@ -65,6 +66,7 @@ public final class Dungeon {
     public final Rooms rooms;
     public final TaskBag tasks;
     public final Fx fx;
+    private final Titles titles;
     public final Doors doors;
     public final Mobs mobs;
     public final Waves waves;
@@ -90,7 +92,7 @@ public final class Dungeon {
 
     public Dungeon(JavaPlugin plugin, Settings settings, Messages messages, RegionIndex regions, Points points,
                    Store store, Rooms rooms, TaskBag tasks, Doors doors, Mobs mobs, Waves waves, Bosses bosses,
-                   Artifacts artifacts, Rewards rewards, Dialogue dialogue, WorldReset reset, Fx fx) {
+                   Artifacts artifacts, Rewards rewards, Dialogue dialogue, WorldReset reset, Fx fx, Titles titles) {
         this.plugin = plugin;
         this.settings = settings;
         this.messages = messages;
@@ -108,6 +110,7 @@ public final class Dungeon {
         this.dialogue = dialogue;
         this.reset = reset;
         this.fx = fx;
+        this.titles = titles;
         artifacts.onFound(this::artifactFound);
     }
 
@@ -255,7 +258,11 @@ public final class Dungeon {
         if (isInside(player.getUniqueId())) return "already-in";
         Points.Spot anchor = points.first("anchor");
         Location at = anchor == null ? null : anchor.at();
-        if (at == null) return "no-anchor";
+        if (at == null) {
+            if (anchor == null) return "no-anchor";
+            messages.send(player, "no-anchor-world", "world", anchor.world());
+            return null;
+        }
 
         store.remember(player.getUniqueId(), player.getLocation(), player.getGameMode());
         for (PotionEffect effect : List.copyOf(player.getActivePotionEffects())) player.removePotionEffect(effect.getType());
@@ -344,6 +351,7 @@ public final class Dungeon {
         if (now < nextSecond) return;
         nextSecond = now + 1000;
 
+        if (waiting()) waitingBar(now);
         switch (state) {
             case OPEN -> tickOpen(now);
             case LOCKED -> {
@@ -356,6 +364,7 @@ public final class Dungeon {
             case COUNTDOWN -> tickCountdown(now);
             case ROOM1_TRAVEL, ROOM2_TRAVEL, ROOM3_TRAVEL -> tickTravel(now);
             case ROOM1_COMBAT, ROOM2_COMBAT, ROOM3_COMBAT -> tickCombat(now);
+            case ROOM1_LOOT -> tickLoot();
             case CELEBRATION -> tickCelebration(now);
             default -> { }
         }
@@ -364,6 +373,22 @@ public final class Dungeon {
             return;
         }
         if (state.active()) sweepIntruders();
+    }
+
+    /** True while players are waiting in the spawn hall for the run to begin. */
+    public boolean waiting() {
+        return state == DungeonState.OPEN || state == DungeonState.LOCKED || state == DungeonState.COUNTDOWN;
+    }
+
+    /** The time until the first gate opens, on the action bar of everyone waiting. */
+    private void waitingBar(long now) {
+        long left = switch (state) {
+            case OPEN -> msLeft(joinDeadline) + settings.lockGapMs + settings.countdownMs;
+            case LOCKED -> msLeft(lockDeadline) + settings.countdownMs;
+            default -> msLeft(countdownDeadline);
+        };
+        Component bar = messages.text("waiting", "time", clock(left), "players", String.valueOf(insideCount()));
+        for (Player p : players()) p.sendActionBar(bar);
     }
 
     private void tickOpen(long now) {
@@ -388,7 +413,7 @@ public final class Dungeon {
         if (left != shownCountdown && left > 0) {
             shownCountdown = left;
             for (Player p : players()) {
-                p.showTitle(Title.title(Text.component("<red>" + left), Component.empty(),
+                p.showTitle(Title.title(Text.component("<#FF5555><bold>" + left), Component.empty(),
                         Title.Times.times(Duration.ZERO, Duration.ofMillis(900), Duration.ZERO)));
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.6f);
             }
@@ -422,20 +447,30 @@ public final class Dungeon {
         };
     }
 
+    private Region coreOf(RoomDef room) {
+        return room == null || room.core() == null ? null : regions.get(room.core());
+    }
+
     private void tickTravel(long now) {
         int level = travelLevel(state);
+        RoomDef room = rooms.room(level);
+        Region core = coreOf(room);
         List<Player> outside = new ArrayList<>();
         int insideRoom = 0;
         for (Player p : players()) {
             Run run = runs.get(p.getUniqueId());
-            if (run.progress.level() >= level) insideRoom++;
+            // inside means in the heart of the room, not in the corridor that leads to it
+            boolean in = core != null
+                    ? p.getWorld().getName().equals(core.world()) && core.contains(p.getLocation().getX(), p.getLocation().getY(), p.getLocation().getZ())
+                    : run.progress.level() >= level;
+            if (in) insideRoom++;
             else outside.add(p);
         }
         if (outside.isEmpty()) {
             if (insideRoom > 0) beginRoom(level);
             return;
         }
-        Region target = regions.firstOfType(RegionType.valueOf("ROOM" + level));
+        Region target = core != null ? core : regions.firstOfType(RegionType.valueOf("ROOM" + level));
         for (Player p : outside) {
             if (target != null) p.sendActionBar(compass(p, target));
             Run run = runs.get(p.getUniqueId());
@@ -492,11 +527,27 @@ public final class Dungeon {
 
     private void waveStarted(int number, String name) {
         dialogue.fire(Trigger.ON_WAVE_START, Map.of("wave", String.valueOf(number)));
-        for (Player p : players()) {
-            p.showTitle(Title.title(Component.empty(), Text.component("<dark_red>" + name),
-                    Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(1300), Duration.ofMillis(400))));
-            p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, 0.5f, 1.2f);
+        titles.type(players(), messages.raw("wave-title", "wave", String.valueOf(number)), "#FF5555", messages.raw("wave-subtitle"));
+        for (Player p : players()) p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, 0.5f, 1.2f);
+    }
+
+    /** The way in and out of a room lifts again once its fight is over. */
+    private void unseal(int level) {
+        RoomDef room = rooms.room(level);
+        if (room != null && room.reopen() && room.seal() != null) doors.open(room.seal());
+    }
+
+    /** While the artifacts are hidden: a faint glint over each chest for players who are close, and the count so far. */
+    private void tickLoot() {
+        for (Location at : artifacts.hiddenAt()) {
+            for (Player p : players()) {
+                if (p.getWorld() == at.getWorld() && p.getLocation().distanceSquared(at) <= 400) {
+                    p.spawnParticle(org.bukkit.Particle.END_ROD, at.clone().add(0.5, 1.2, 0.5), 3, 0.15, 0.2, 0.15, 0.01);
+                }
+            }
         }
+        Component bar = messages.text("loot-bar", "found", String.valueOf(artifacts.room1Found()), "total", String.valueOf(artifacts.room1Quota()));
+        for (Player p : players()) p.sendActionBar(bar);
     }
 
     private void mobKilled(Player killer, String tier) {
@@ -517,10 +568,8 @@ public final class Dungeon {
     private void room1Cleared() {
         setState(DungeonState.ROOM1_LOOT);
         int hidden = artifacts.hideRoom1(points);
-        for (Player p : players()) {
-            p.showTitle(Title.title(Component.empty(), messages.text("chamber-silent"),
-                    Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(2500), Duration.ofMillis(600))));
-        }
+        unseal(1);
+        titles.type(players(), messages.raw("loot-title"), "#B3A2FF", messages.raw("loot-subtitle", "count", String.valueOf(artifacts.room1Quota())));
         if (hidden == 0 || artifacts.room1Quota() == 0) unlockRoom(2);
     }
 
@@ -539,9 +588,6 @@ public final class Dungeon {
     private void unlockRoom(int level) {
         RoomDef room = rooms.room(level);
         if (room != null && room.door() != null) doors.open(room.door());
-        // a room that was sealed behind the players lets them out again once it is done, if it says so
-        RoomDef done = rooms.room(level - 1);
-        if (done != null && done.reopen() && done.seal() != null && !done.seal().equals(room == null ? null : room.door())) doors.open(done.seal());
         setState(level == 2 ? DungeonState.ROOM2_TRAVEL : DungeonState.ROOM3_TRAVEL);
         dialogue.fire(level == 2 ? Trigger.ON_ROOM2_UNLOCK : Trigger.ON_ROOM3_UNLOCK, Map.of());
         fx.sound(Sound.BLOCK_END_PORTAL_SPAWN, 0.6f, 0.7f);
@@ -569,6 +615,8 @@ public final class Dungeon {
             @Override
             public void died(Bosses.BossFight fight, Player lastHit, Location where) {
                 minibossDead = true;
+                mobs.killAll();   // its summoned vexes go with it
+                unseal(2);
                 mobKilled(lastHit, "miniboss");
                 artifacts.dropRoom2(where, new ArrayList<>(players()), settings.autoDistribute);
                 checkThroneUnlock();
@@ -622,6 +670,7 @@ public final class Dungeon {
         setState(DungeonState.VICTORY);
         lastHit = last == null ? "the party" : last.getName();
         store.result("VICTORY", Text.plain(boss));
+        unseal(3);
         waves.stop();
         mobs.killAll();
 
@@ -718,9 +767,9 @@ public final class Dungeon {
 
         String worldName = settings.world;
         World world = Bukkit.getWorld(worldName);
-        File file = new File(plugin.getDataFolder(), "dungeon_clean.schem");
+        File file = new File(plugin.getDataFolder(), "schematics/dungeon_clean.schem");
         if (world == null || !file.exists()) {
-            plugin.getLogger().warning("No world '" + worldName + "' or no dungeon_clean.schem, so the world is not restored.");
+            plugin.getLogger().warning("No world '" + worldName + "' or no schematics/dungeon_clean.schem, so the world is not restored.");
             doors.closeAllNow();
             finishReset();
             return;
@@ -730,7 +779,7 @@ public final class Dungeon {
             try {
                 snapshot = SchemFile.read(file.toPath());
             } catch (Exception e) {
-                plugin.getLogger().warning("Could not read dungeon_clean.schem: " + e);
+                plugin.getLogger().warning("Could not read schematics/dungeon_clean.schem: " + e);
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     doors.closeAllNow();
                     finishReset();

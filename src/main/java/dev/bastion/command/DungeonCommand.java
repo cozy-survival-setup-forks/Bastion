@@ -365,7 +365,7 @@ public final class DungeonCommand implements TabExecutor {
             }
             Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
                 try {
-                    SchemFile.write(new File(plugin.getDataFolder(), "dungeon_clean.schem").toPath(), snapshot);
+                    SchemFile.write(new File(plugin.getDataFolder(), "schematics/dungeon_clean.schem").toPath(), snapshot);
                     say(sender, "snapshot-saved", "blocks", String.valueOf(snapshot.volume()));
                 } catch (Exception e) {
                     say(sender, "snapshot-failed");
@@ -476,7 +476,7 @@ public final class DungeonCommand implements TabExecutor {
             return;
         }
         File file = new File(a[0]);
-        if (!file.isAbsolute()) file = new File(plugin.getDataFolder(), a[0]);
+        if (!file.isAbsolute()) file = new File(plugin.getDataFolder(), "schematics/" + a[0]);
         World world;
         int x, y, z;
         if (a.length >= 5) {

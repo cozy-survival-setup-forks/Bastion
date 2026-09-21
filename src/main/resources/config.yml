@@ -1,15 +1,16 @@
-# Bastion - config.yml
-# Timers and limits. The dungeon itself (rooms, mobs, bosses, lines, rewards) is in the other files.
-# There is no minimum or maximum number of players anywhere.
+# Bastion config.yml
+# Timers and limits, then the rooms, the artifacts and the rewards. There is no minimum or maximum number of players.
+# Other files: messages.yml (every message and story line), mobs.yml (mobs and bosses), menus.yml (the menu),
+# setup.yml (regions, doors and points of the build), schematics/ (the clean snapshot the world is reset to).
 
 # The world the dungeon is built in. Nobody outside the run may stand in the DUNGEON region of this world
-# while a run is going, and the world is put back to dungeon_clean.schem after every run.
+# while a run is going, and the world is put back to schematics/dungeon_clean.schem after every run.
 world: Dungeons
 
 # Money needed to open the dungeon. Players pay it in through the menu (Vault). /dungeon forcestart skips it.
 goal: 100000
 
-# How long players can join once the goal is reached.
+# How long players can join once the goal is reached. They wait in the spawn hall and cannot build or break.
 join-window-seconds: 300
 # A short pause after the join window, while the doors seal, before the countdown.
 lock-gap-seconds: 5
@@ -22,7 +23,7 @@ celebration-seconds: 120
 
 # If every player in the run is dead or has left, the run fails at once. If false it runs until the time limit.
 fail-when-everyone-dead: true
-# If the join window ends and nobody came, give the money back. If false the money is kept as is (funding starts over).
+# If the join window ends and nobody came, give the money back. If false the money is kept as is.
 refund-when-nobody-joins: true
 
 # How often a player who has not reached the room yet is told the others are waiting.
@@ -33,21 +34,13 @@ ui-update-ticks: 5
 mobs:
   # More mobs per wave for bigger parties, so a solo run is not overwhelmed.
   scale-with-players: true
-  # Each extra player adds this share of a wave (0.5 = +50% of the wave per extra player).
+  # Each extra player adds this share of a wave (0.5 means +50% of the wave per extra player).
   extra-per-player: 0.5
-  # The most mobs alive at once, however big the wave. The rest come out as earlier ones die.
+  # The most mobs alive at once, however big the wave. The rest come as earlier ones die.
   max-active: 8
   wave-pause-seconds: 5
   # Who gets the kill reward: last_hit or top_damage
   credit: last_hit
-
-artifacts:
-  # How many of the artifacts are hidden in room 1. The rest drop from the mini-boss in room 2.
-  room1: 4
-  # Remove artifacts marked consume: true from inventories when the run is won. Others are keepsakes.
-  consume-on-victory: false
-  # How the mini-boss artifacts are handed out: auto (one each to the nearest players) or drop (on the ground)
-  room2-mode: auto
 
 commands:
   # Commands players may use inside the dungeon. Staff with dungeon.bypass.commands may use any.
@@ -57,18 +50,155 @@ reset:
   # How much of a tick may be spent putting blocks back. Lower is gentler on the server, and slower.
   budget-ms-per-tick: 6
 
-rewards:
-  # If the server already has a points plugin, put its give command here (%player%, %amount%). Empty keeps the
-  # coins on the player, shown by %dungeon_coins%.
-  coins-command: ""
-
 # Sent to the whole server. Several lines are rotated at random.
 # %participant_count%  %last_hit_player%  %boss_name%
 announcements:
   start:
-    - "&6⚔ The Buried Throne has opened! &e%participant_count% &6brave souls have entered - wish them luck."
-    - "&6⚔ ...&e%participant_count% &6fools have entered the Buried Throne. May the throne be merciful."
+    - "&6⚔ The Buried Throne has opened. &e%participant_count% &6inside, may the throne be merciful."
+    - "&6⚔ The doors of the Buried Throne have closed behind &e%participant_count% &6of you. Good luck."
   victory:
     - "&6⚔ The Buried Throne has fallen! &e%last_hit_player% &6struck the final blow against &c%boss_name%&6!"
   failure:
-    - "&7The defenders of The Buried Throne failed to slay &c%boss_name%&7 - it escaped into the dark. Try again next time the goal is reached."
+    - "&fThe defenders of The Buried Throne failed to slay &c%boss_name%&f. It escaped into the dark. Try again next time the goal is reached."
+
+# ---------------------------------------------------------------------------------------------------------------
+# Rooms. Ids refer to mobs and bosses (mobs.yml), doors, regions and points (setup.yml). The numbers of mobs are for
+# one player, bigger parties get more (see mobs.scale-with-players).
+#
+#   door:         opens when the room is unlocked
+#   seal:         closes behind the players once ALL of them are in the heart of the room, and opens again when the
+#                 fight in the room is over. It may be the same door as `door`.
+#   reopen:       false keeps the seal shut for good
+#   core:         the region that counts as being in the room. The fight starts when everyone is inside it
+#   spawn-group:  the point group mobs rise out of
+#   waves:        in order. A wave ends when all of it is dead
+#   miniboss / miniboss-point: room 2. It rises at that point after the last wave
+#   guards / guard-group / boss / boss-point: room 3. The guards come first, then the storm, then the boss rises at
+#                 the first boss-point. The others are where it moves to
+rooms:
+  room1:
+    level: 1
+    door: door_room1
+    seal: door_room1
+    core: room1_core
+    spawn-group: room1
+    waves:
+      - name: "Wave 1"
+        mobs: {hollow_acolyte: 5}
+      - name: "Wave 2"
+        mobs: {withered_scribe: 4, hollow_acolyte: 2}
+      - name: "Wave 3"
+        mobs: {bound_wraith: 4}
+
+  room2:
+    level: 2
+    door: door_room2
+    seal: door_room2
+    core: room2_core
+    spawn-group: room2
+    waves:
+      - name: "Wave 1"
+        mobs: {crimson_thrall: 5}
+      - name: "Wave 2"
+        mobs: {ashen_deadeye: 4, crimson_thrall: 2}
+      - name: "Wave 3"
+        mobs: {sanctum_reaver: 4}
+      - name: "Wave 4"
+        mobs: {blightguard_sentinel: 3}
+      - name: "Wave 5"
+        mobs: {nightmarch_vindicator: 3, nightmarch_skeleton: 3}
+    miniboss: bloodwoken
+    miniboss-point: altar
+
+  room3:
+    level: 3
+    door: door_room3
+    seal: door_room3
+    core: room3_core
+    guard-group: guards
+    guards: {throne_warden: 3}
+    boss: sovereign
+    boss-point: boss
+
+# ---------------------------------------------------------------------------------------------------------------
+# Artifacts. Nine to collect, each an item with a hidden tag so it is found again whatever it is renamed to.
+#   id: a short name   material: the item   name / lore: what players see
+#   In the lore, %player_found_by%, %find_order% (like 3rd) and %total% are filled in when a player finds it.
+#   custom-model-data: optional, for a resource pack
+#   consume: true = taken from inventories when the run is won. false = a keepsake
+# The special artifact is the tenth item, dropped by the final boss. It is not one of the nine, it is the shop
+# currency. A DeluxeMenus shop can check for it with the item tag bastion:shop_currency.
+artifacts:
+  # How many of the nine are hidden in room 1. The rest drop from the mini-boss in room 2.
+  room1: 4
+  # Remove artifacts marked consume: true from inventories when the run is won.
+  consume-on-victory: false
+  # How the mini-boss artifacts are handed out: auto (one each to the nearest players) or drop (on the ground)
+  room2-mode: auto
+  items:
+    - id: whispering_tome
+      material: BOOK
+      name: "&5Whispering Tome"
+      lore: ["&7Its pages turn when nobody is reading.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: veiled_candle
+      material: CANDLE
+      name: "&fVeiled Candle"
+      lore: ["&7The flame gives no light, only shadow.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: hollow_chalice
+      material: GLASS_BOTTLE
+      name: "&3Hollow Chalice"
+      lore: ["&7Always empty. Never dry.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: ashen_seal
+      material: FIRE_CHARGE
+      name: "&cAshen Seal"
+      lore: ["&7Warm, like something recently alive.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: bone_key
+      material: BONE
+      name: "&fBone Key"
+      lore: ["&7It fits a lock you have not found yet.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: weeping_mask
+      material: CARVED_PUMPKIN
+      name: "&8Weeping Mask"
+      lore: ["&7It was never made to be worn.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: gilded_thorn
+      material: GOLDEN_SWORD
+      name: "&6Gilded Thorn"
+      lore: ["&7Sharp on every side, including yours.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: sunken_crown
+      material: GOLDEN_HELMET
+      name: "&eSunken Crown"
+      lore: ["&7Whoever wore it did not choose to.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+    - id: last_ember
+      material: BLAZE_POWDER
+      name: "&6Last Ember"
+      lore: ["&7The final piece. It is still burning.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+  special:
+    id: sovereign_relic
+    material: NETHER_STAR
+    name: "&5&lSovereign's Relic"
+    lore: ["&7Proof that you stood before the throne.", "&7The dungeon shop takes it as payment."]
+
+# ---------------------------------------------------------------------------------------------------------------
+# Rewards. Each entry is one roll:
+#   chance: percent, 100 = always    money: an amount or [min, max], paid through Vault
+#   coins: an amount or [min, max]. Kept on the player (%dungeon_coins%), or paid with coins-command
+#   commands: console commands, %player% is the player
+# Kill rewards go to the player credited with the kill. The tier is the `tier:` of the mob in mobs.yml.
+rewards:
+  # If the server already has a points plugin, put its give command here (%player%, %amount%). Empty keeps the coins on the player.
+  coins-command: ""
+  tiers:
+    room1:
+      - {chance: 30, coins: [5, 15]}
+      - {chance: 10, money: [2, 5]}
+    room2:
+      - {chance: 45, coins: [10, 30]}
+      - {chance: 18, money: [5, 12]}
+    guards:
+      - {chance: 100, coins: [20, 30]}
+      - {chance: 30, money: [10, 25]}
+    miniboss:
+      - {chance: 100, coins: [60, 90], money: [50, 80]}
+  # Paid to every player still in the run when the final boss dies.
+  victory:
+    - {chance: 100, money: 5000, coins: 250, commands: []}

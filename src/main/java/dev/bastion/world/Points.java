@@ -1,5 +1,6 @@
 package dev.bastion.world;
 
+import dev.bastion.util.SetupFile;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -67,7 +68,7 @@ public final class Points {
     }
 
     public void save() {
-        YamlConfiguration yaml = new YamlConfiguration();
+        YamlConfiguration yaml = SetupFile.open(file, "points");
         groups.forEach((group, spots) -> yaml.set("points." + group, spots.stream().map(Spot::write).toList()));
         try {
             yaml.save(file);

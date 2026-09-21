@@ -22,6 +22,7 @@ import dev.bastion.region.RegionStore;
 import dev.bastion.region.Wand;
 import dev.bastion.util.Fx;
 import dev.bastion.util.TaskBag;
+import dev.bastion.util.Titles;
 import dev.bastion.world.Points;
 import dev.bastion.world.WorldReset;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -44,14 +45,18 @@ public final class BastionPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        new File(getDataFolder(), "schematics").mkdirs();
+        if (getConfig().getConfigurationSection("rooms") == null) {
+            getLogger().warning("config.yml has no rooms section, so it is from an older version. Delete config.yml, messages.yml and mobs.yml (and the old dialogue, rooms, bosses, artifacts and rewards files) and restart.");
+        }
         Settings settings = new Settings(getConfig());
         Messages messages = new Messages(this);
         messages.load();
 
         RegionIndex regions = new RegionIndex();
-        regionStore = new RegionStore(new File(getDataFolder(), "regions.yml"), regions, getLogger());
+        regionStore = new RegionStore(new File(getDataFolder(), "setup.yml"), regions, getLogger());
         regionStore.load();
-        Points points = new Points(new File(getDataFolder(), "points.yml"), getLogger());
+        Points points = new Points(new File(getDataFolder(), "setup.yml"), getLogger());
         points.load();
         store = new Store(this);
         store.load();
@@ -59,7 +64,7 @@ public final class BastionPlugin extends JavaPlugin {
         TaskBag tasks = new TaskBag(this);
         Fx fx = new Fx(() -> dungeon.players());
 
-        Doors doors = new Doors(this, new File(getDataFolder(), "doors.yml"), fx, 3);
+        Doors doors = new Doors(this, new File(getDataFolder(), "setup.yml"), fx, 3);
         doors.load();
         Mobs mobs = new Mobs(this, fx, () -> dungeon.players());
         mobs.load();
@@ -72,12 +77,13 @@ public final class BastionPlugin extends JavaPlugin {
         rooms.load();
         Rewards rewards = new Rewards(this, () -> dungeon.economy, () -> dungeon.settings.coinsCommand);
         rewards.load();
-        Dialogue dialogue = new Dialogue(this, () -> dungeon.players(), tasks);
+        Titles titles = new Titles(tasks);
+        Dialogue dialogue = new Dialogue(this, () -> dungeon.players(), tasks, titles);
         dialogue.load();
         WorldReset reset = new WorldReset(this, settings.resetBudgetMs);
 
         dungeon = new Dungeon(this, settings, messages, regions, points, store, rooms, tasks, doors, mobs, waves, bosses,
-                artifacts, rewards, dialogue, reset, fx);
+                artifacts, rewards, dialogue, reset, fx, titles);
         dungeon.economy = VaultEconomy.hook();
         if (dungeon.economy == null) getLogger().warning("No Vault economy found: contributions are off. /dungeon forcestart still works.");
 

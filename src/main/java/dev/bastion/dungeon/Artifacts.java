@@ -6,16 +6,16 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
+import org.bukkit.block.data.Directional;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -50,6 +50,7 @@ public final class Artifacts {
     private final List<String> room1 = new ArrayList<>();
     private final List<String> room2 = new ArrayList<>();
     private final Map<Long, String> hidden = new HashMap<>();
+    private final Map<Long, Location> hiddenLocations = new HashMap<>();
     private final Set<String> found = new LinkedHashSet<>();
     private final Set<String> room1Found = new LinkedHashSet<>();
     private final Set<String> dropped = new LinkedHashSet<>();
@@ -61,14 +62,12 @@ public final class Artifacts {
 
     public void load() {
         templates.clear();
-        File file = new File(plugin.getDataFolder(), "artifacts.yml");
-        if (!file.exists()) plugin.saveResource("artifacts.yml", false);
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
-        for (Map<?, ?> m : yaml.getMapList("artifacts")) {
+        var yaml = plugin.getConfig();
+        for (Map<?, ?> m : yaml.getMapList("artifacts.items")) {
             Template t = template(m, false);
             if (t != null) templates.put(t.id, t);
         }
-        ConfigurationSection s = yaml.getConfigurationSection("special");
+        ConfigurationSection s = yaml.getConfigurationSection("artifacts.special");
         special = s == null ? null : template(s.getValues(false), true);
     }
 
@@ -125,6 +124,7 @@ public final class Artifacts {
         room1.clear();
         room2.clear();
         hidden.clear();
+        hiddenLocations.clear();
         found.clear();
         room1Found.clear();
         dropped.clear();
@@ -141,11 +141,21 @@ public final class Artifacts {
             Location at = spot.at();
             if (at == null) continue;
             Block block = at.getBlock();
+            // a spot that is not a container yet gets a chest, turned to open into the room
+            // floor plants and carpets count as free space
+            if (!(block.getState() instanceof Container) && (block.getType().isAir() || block.isReplaceable())) {
+                block.setType(Material.CHEST, false);
+                if (block.getBlockData() instanceof Directional d) {
+                    d.setFacing(openSide(block));
+                    block.setBlockData(d, false);
+                }
+            }
             if (!(block.getState() instanceof Container container)) continue;
             String id = room1.get(placed);
             container.getInventory().clear();
             container.getInventory().setItem(container.getInventory().getSize() / 2, make(templates.get(id), null, 0));
             hidden.put(key(block), id);
+            hiddenLocations.put(key(block), block.getLocation());
             placed++;
         }
         if (placed < wanted) {
@@ -154,6 +164,18 @@ public final class Artifacts {
             while (room1.size() > placed) room2.add(room1.remove(room1.size() - 1));
         }
         return placed;
+    }
+
+    private static BlockFace openSide(Block block) {
+        for (BlockFace face : new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST}) {
+            if (block.getRelative(face).getType().isAir() && block.getRelative(face.getOppositeFace()).getType().isSolid()) return face;
+        }
+        return BlockFace.NORTH;
+    }
+
+    /** Where artifacts are still hidden, for the glint that helps players find them. */
+    public java.util.Collection<Location> hiddenAt() {
+        return hiddenLocations.values();
     }
 
     /** True if this block hides an artifact nobody has found yet. */
@@ -165,6 +187,7 @@ public final class Artifacts {
     public void opened(Block block, Player finder) {
         String id = hidden.remove(key(block));
         if (id == null) return;
+        hiddenLocations.remove(key(block));
         found.add(id);
         room1Found.add(id);
         if (block.getState() instanceof Container container) {

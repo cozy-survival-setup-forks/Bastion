@@ -12,19 +12,20 @@ code.
 
 | Download | What it is |
 | --- | --- |
-| `Bastion-1.0.0.jar` | The plugin |
+| `Bastion-1.1.0.jar` | The plugin |
 | `Dungeons-world.zip` | A ready world called `Dungeons` with the castle pasted in, gates built, and the game rules set. Import it with the Worlds plugin |
-| `Bastion-default-setup.zip` | `regions.yml`, `doors.yml`, `points.yml` and `dungeon_clean.schem` for that world, and `Dungeons.schem`, the castle with the gates, in case you want to paste it somewhere else |
+| `Bastion-default-setup.zip` | `setup.yml` (regions, doors and points) and the `schematics` folder for that world: `dungeon_clean.schem` (the snapshot every run resets to) and `Dungeons.schem` (the castle with the gates, for pasting elsewhere) |
 
 ## Setting it up
 
-1. Put `Bastion-1.0.0.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
+1. Put `Bastion-1.1.0.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
 2. Unzip `Dungeons-world.zip` into the server folder and import `Dungeons` with the Worlds plugin.
-3. Unzip `Bastion-default-setup.zip` into `plugins/Bastion` (skip `Dungeons.schem`) and restart.
+3. Unzip `Bastion-default-setup.zip` into `plugins/Bastion` and restart.
 4. `/dungeon` opens the menu. `/dungeon forcestart` opens the dungeon at once, for a test.
 
-The default setup is only files, so it can be changed by editing them or with the in-game tools below. The world
-is at its clean state when you get it, and `dungeon_clean.schem` is that state.
+Coming from 1.0? The files were merged, so delete the old ones (`config.yml`, `messages.yml`, `mobs.yml`, `dialogue.yml`, `rooms.yml`, `bosses.yml`, `artifacts.yml`, `rewards.yml`, `regions.yml`, `doors.yml`, `points.yml`, `locations.yml`) and let the new ones generate.
+
+The world must be called exactly `Dungeons`, or change `world:` in `config.yml` and the world name in `setup.yml`. The default setup is only files, so it can be changed by editing them or with the in-game tools below.
 
 ## How a run goes
 
@@ -36,10 +37,11 @@ FUNDING -> OPEN -> LOCKED -> COUNTDOWN -> ROOM1_TRAVEL -> ROOM1_COMBAT -> ROOM1_
 
 - **Funding**: only this state takes money. Any other state shows "Dungeon in progress" and refuses.
 - **Open**: 5 minutes to join from the menu. Nobody came? The money is refunded (or kept, in `config.yml`).
-- **Locked, countdown**: doors seal, a 10 second countdown, then the first gate lifts.
-- **Room 1**: a compass on the action bar points the way. Once everyone is in, the gate seals behind them, three waves
-  come up out of the floor, then four of the nine artifacts are hidden in barrels around the room.
-- **Room 2**: five waves, then the Bloodwoken rises from the altar. When it dies the remaining artifacts are handed to
+- **Locked, countdown**: doors seal, a 10 second countdown, then the first gate lifts. While they wait, players see the time left on the action bar and cannot break or place blocks.
+- **Room 1**: a compass on the action bar points the way. Once everyone is in the heart of the room (not just the
+  corridor), the gate seals behind them and three waves come up out of the floor. When the last wave is dead the gate
+  lifts again, and four of the nine artifacts are hidden in chests around the room, with a faint glint over each.
+- **Room 2**: the same, with five waves, then the Bloodwoken rises from the altar. When it dies the remaining artifacts are handed to
   the nearest players. **Nine artifacts found in total** is the one check that opens the throne room.
 - **Room 3**: throne wardens first. When the last one falls the storm gathers, lightning converges on the throne, and
   the Buried Sovereign rises.
@@ -84,17 +86,13 @@ Permissions: `dungeon.use` (everyone), `dungeon.admin`, `dungeon.wand`, `dungeon
 
 | File | What it holds |
 | --- | --- |
-| `config.yml` | Goal, every timer, mob limits, command whitelist, server announcements |
-| `messages.yml` | Every system message |
-| `dialogue.yml` | Every line of the story, by trigger. NORMAL lines are action bar and chat, MAJOR ones add a title |
-| `rooms.yml` | Waves, mini-boss, guards and boss for each room, and which gates and points they use |
-| `mobs.yml` | The mobs: type, gear, effects and one random minor power (shove, flicker, hurl, war cry) |
-| `bosses.yml` | The two bosses: health, size, bossbar and the abilities with weights and cooldowns |
-| `artifacts.yml` | The nine artifacts and the special one |
-| `rewards.yml` | Chance tables per mob tier, and the victory reward |
+| `config.yml` | Goal, every timer, mob limits, command whitelist, announcements, then the rooms (waves, doors, mini-boss, guards, boss), the nine artifacts and the rewards |
+| `messages.yml` | Every system message, and every line of the story (`dialogue`), by trigger. NORMAL lines are action bar and chat, MAJOR ones add a typed title |
+| `mobs.yml` | The mobs and the two bosses: type, name, gear, damage, effects, one random minor power, and the boss abilities with weights and cooldowns |
 | `menus.yml` | The menu, in the style of DeluxeMenus. Actions: `[COMMAND]` `[CONSOLE]` `[MESSAGE]` `[OPEN_MENU]` `[CONTRIBUTE]` `[CONTRIBUTE_PROMPT]` `[ENTER]` `[LEAVE]` `[CLOSE]` `[SOUND]` |
-| `regions.yml`, `doors.yml`, `points.yml` | The build: where things are. The default setup fills these in |
-| `dungeon_clean.schem` | The snapshot every run is reset to |
+| `setup.yml` | The build: regions, doors and points. The default setup fills it in |
+| `schematics/` | `dungeon_clean.schem`, the snapshot every run is reset to, and any schematic you want to `/dungeon paste` |
+| `data.yml` | Runtime data: the funding so far, and where players in the dungeon came from. Not for editing |
 
 Add a wave, a mob, a boss ability or a line of dialogue by editing a file and running `/dungeon reload`.
 
@@ -102,7 +100,7 @@ Add a wave, a mob, a boss ability or a line of dialogue by editing a file and ru
 
 `/dungeon wand` gives a blaze rod. In cuboid mode left click is corner 1 and right click is corner 2. In polygon mode
 right click each corner in turn and sneak + left click to close the shape. `/dungeon region save <id> <type>` keeps it.
-Region types are `SPAWN`, `ROOM1`, `ROOM2`, `ROOM3`, `DUNGEON`. A gate is a box with the bars in it: build it closed,
+Region types are `SPAWN`, `ROOM1`, `ROOM2`, `ROOM3`, `DUNGEON`, and `OTHER` for the core of a room, the smaller region inside it where everyone has to be for the fight to start (`core:` in `config.yml`). A gate is a box with the bars in it: build it closed,
 select it, `/dungeon door define <id>`. When it is all built, `/dungeon region setclean` takes the snapshot.
 
 ## Why it is light

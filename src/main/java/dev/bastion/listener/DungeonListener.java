@@ -20,6 +20,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -158,6 +161,30 @@ public final class DungeonListener implements Listener {
             // and nothing from outside leaks in
             event.viewers().removeIf(a -> a instanceof Player p && dungeon.isInside(p.getUniqueId()));
         }
+    }
+
+    // ---------------------------------------------------------------- nothing is built or broken while waiting
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent event) {
+        stopBuilding(event.getPlayer(), event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlace(BlockPlaceEvent event) {
+        stopBuilding(event.getPlayer(), event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBucket(PlayerBucketEmptyEvent event) {
+        stopBuilding(event.getPlayer(), event);
+    }
+
+    /** Until the waiting is over, everybody in the spawn hall keeps their hands to themselves. */
+    private void stopBuilding(Player player, org.bukkit.event.Cancellable event) {
+        if (!dungeon.waiting() || !dungeon.isInside(player.getUniqueId())) return;
+        event.setCancelled(true);
+        player.sendActionBar(dungeon.messages.text("no-build"));
     }
 
     // ---------------------------------------------------------------- chests and items

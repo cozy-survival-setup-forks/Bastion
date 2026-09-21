@@ -1,93 +1,226 @@
-# Bastion - messages.yml
-# Every message the plugin sends that is not a line of the story (those are in dialogue.yml).
+# Bastion messages.yml
+# Every message the plugin sends, and every line of the story at the bottom (dialogue).
 # Texts take & codes, &#rrggbb and MiniMessage. %name% is filled in by the plugin.
-prefix: "&8[&4Bastion&8] &7"
+prefix: "&8[&4Bastion&8] &f"
 
-# ---- the run, told to the whole server. The config.yml announcements override these three.
-start: "&6⚔ The Buried Throne has opened! &e%participant_count% &6brave souls have entered - wish them luck."
+# ---- the run, told to the whole server. The announcements in config.yml replace the first three.
+start: "&6⚔ The Buried Throne has opened. &e%participant_count% &6inside, may the throne be merciful."
 victory: "&6⚔ The Buried Throne has fallen! &e%last_hit_player% &6struck the final blow against &c%boss_name%&6!"
-failure: "&7The defenders of The Buried Throne failed to slay &c%boss_name%&7 - it escaped into the dark."
+failure: "&fThe defenders of The Buried Throne failed to slay &c%boss_name%&f. It escaped into the dark."
 opened: "&6The goal is reached! &eThe Buried Throne is open for &f%minutes% &eminutes. Open the menu with &f/dungeon&e."
-nobody-came: "&7Nobody entered The Buried Throne. Funding starts over."
-ready: "&7The Buried Throne is ready to be funded again."
+nobody-came: "&fNobody entered The Buried Throne. Funding starts over."
+ready: "&fThe Buried Throne is ready to be funded again."
 
 # ---- in the run
+waiting: "&fThe dungeon starts in &e%time%&f. Players inside: &e%players%"
+no-build: "&cYou cannot build or break blocks until the dungeon starts."
 sealing: "&cThe doors are sealing. There is no more time."
-sealing-room: "&7The chamber seals behind you..."
-return-warning: "&c⚠ Return to the chamber &7- the others are waiting"
-compass: "&7[&6%arrow% %distance%m&7] Something waits to the %direction%..."
-locked: "&8The way is sealed."
-chamber-silent: "&8The chamber falls silent..."
-artifact-found: "&e%player% &7found the &6%artifact%&7!"
-chat-prefix: "&8[&4Dungeon&8] &7"
-silenced: "&8The dungeon silences you."
+sealing-room: "&fThe doors seal behind you..."
+return-warning: "&c⚠ Return to the chamber, the others are waiting"
+compass: "&f[&6%arrow% %distance%m&f] Something waits to the %direction%..."
+locked: "&fThe way is sealed."
+wave-title: "Wave %wave%"
+wave-subtitle: "Survive"
+loot-title: "The chamber falls silent"
+loot-subtitle: "Find the %count% hidden artifacts"
+loot-bar: "&fArtifacts found in this room: &e%found%&f/&e%total%"
+artifact-found: "&e%player% &ffound the &6%artifact%&f!"
+chat-prefix: "&8[&4Dungeon&8] &f"
+silenced: "&fThe dungeon silences you."
 keep-out: "&cThe dungeon is in use. You cannot be in there."
 
 # ---- funding and joining
-contributed: "&7You put &a%amount% &7towards The Buried Throne."
+contributed: "&fYou put &a%amount% &ftowards The Buried Throne."
 in-progress: "&cA dungeon is already underway."
 no-economy: "&cThere is no economy on this server, so nothing can be contributed."
 not-enough: "&cYou cannot afford that."
 bad-amount: "&cThat is not an amount."
-type-amount: "&7Type the amount to contribute in chat, or &fcancel&7."
-cancelled: "&7Cancelled."
+type-amount: "&fType the amount to contribute in chat, or &ecancel&f."
+cancelled: "&fCancelled."
 not-open: "&cThe dungeon is not open for entry."
 already-in: "&cYou are already inside."
-no-anchor: "&cThe dungeon has no spawn point yet. An admin needs to set the 'anchor' point."
+no-anchor: "&cThe dungeon has no spawn point yet. An admin needs to set the anchor point."
+no-anchor-world: "&cThe spawn point is in the world %world%, which is not loaded. Import that world or change the world name in setup.yml."
 not-in: "&cYou are not in the dungeon."
 no-menu: "&cThe menu is not set up."
 
 # ---- general
 no-permission: "&cYou cannot do that."
 players-only: "&cOnly players can do that."
-reloaded: "&7Reloaded."
-usage: "&7/dungeon [menu|status|contribute <amount>|enter|leave]"
-status: "&7State &f%state% &8| &7Funding &f%goal% &8| &7Inside &f%players% &8| &7Artifacts &f%artifacts% &8| &7Time &f%time%"
-force-started: "&7Started. The dungeon is now &f%state%&7."
-force-not-now: "&7Nothing to start: the dungeon is &f%state%&7."
-force-ended: "&7Ending the run."
-force-reset: "&7Resetting the dungeon."
-funded: "&7Funding is now &f%amount%&7."
-debug: "&7state &f%state% &8| &7inside &f%inside% &8| &7mobs &f%mobs% &8| &7waves &f%waves% &8| &7bosses &f%bosses% &8| &7tasks &f%tasks% &8| &7regions &f%regions% &8| &7artifacts &f%artifacts% &8| &7reset &f%reset%"
+reloaded: "&fReloaded."
+usage: "&f/dungeon [menu|status|contribute <amount>|enter|leave]"
+status: "&fState &e%state% &8| &fFunding &e%goal% &8| &fInside &e%players% &8| &fArtifacts &e%artifacts% &8| &fTime &e%time%"
+force-started: "&fStarted. The dungeon is now &e%state%&f."
+force-not-now: "&fNothing to start, the dungeon is &e%state%&f."
+force-ended: "&fEnding the run."
+force-reset: "&fResetting the dungeon."
+funded: "&fFunding is now &e%amount%&f."
+debug: "&fstate &e%state% &8| &finside &e%inside% &8| &fmobs &e%mobs% &8| &fwaves &e%waves% &8| &fbosses &e%bosses% &8| &ftasks &e%tasks% &8| &fregions &e%regions% &8| &fartifacts &e%artifacts% &8| &freset &e%reset%"
 
 # ---- building tools
-wand-given: "&7You have the wand. Left click and right click blocks."
-wand-cuboid: "&7Cuboid mode: left click is corner 1, right click is corner 2."
-wand-polygon: "&7Polygon mode: right click each corner in order, then sneak and left click to close the shape."
-wand-polygon-help: "&7Right click a corner to add it. Sneak and left click to close the shape."
-wand-corner: "&7Point &f%number% &7set at &f%position%&7."
+wand-given: "&fYou have the wand. Left click and right click blocks."
+wand-cuboid: "&fCuboid mode: left click is corner 1, right click is corner 2."
+wand-polygon: "&fPolygon mode: right click each corner in order, then sneak and left click to close the shape."
+wand-polygon-help: "&fRight click a corner to add it. Sneak and left click to close the shape."
+wand-corner: "&fPoint &e%number% &fset at &e%position%&f."
 wand-few: "&cA shape needs at least 3 corners."
-wand-closed: "&7Shape closed with &f%count% &7corners. Save it with /dungeon region save <id> <type>."
-usage-region: "&7/dungeon region <save|cuboid|polygon|list|show|delete|setclean>"
-usage-region-save: "&7/dungeon region save <id> <type> [minY maxY]  types: %types%"
-usage-region-cuboid: "&7/dungeon region cuboid <id> <type> <world> x1 y1 z1 x2 y2 z2"
-usage-region-polygon: "&7/dungeon region polygon <id> <type> <world> <minY> <maxY> x,z x,z x,z ..."
+wand-closed: "&fShape closed with &e%count% &fcorners. Save it with /dungeon region save <id> <type>."
+usage-region: "&f/dungeon region <save|cuboid|polygon|list|show|delete|setclean>"
+usage-region-save: "&f/dungeon region save <id> <type> [minY maxY], types: %types%"
+usage-region-cuboid: "&f/dungeon region cuboid <id> <type> <world> x1 y1 z1 x2 y2 z2"
+usage-region-polygon: "&f/dungeon region polygon <id> <type> <world> <minY> <maxY> x,z x,z x,z ..."
 no-selection: "&cSelect something with the wand first."
-region-saved: "&7Region &f%id% &7saved as &f%type%&7."
-region-deleted: "&7Region &f%id% &7deleted."
+region-saved: "&fRegion &e%id% &fsaved as &e%type%&f."
+region-deleted: "&fRegion &e%id% &fdeleted."
 region-unknown: "&cThere is no such region."
-regions-none: "&7No regions yet."
-region-line: "&f%id% &8- &7%type% &8- &7%shape% in %world%"
+regions-none: "&fNo regions yet."
+region-line: "&e%id% &8| &f%type% &8| &f%shape% in %world%"
 no-dungeon-region: "&cSave a region of type DUNGEON around the whole dungeon first."
 reset-busy: "&cThe world is being changed, wait for it to finish."
-snapshot-started: "&7Reading the dungeon into dungeon_clean.schem. This takes a moment and does not stop the server."
-snapshot-saved: "&7Saved dungeon_clean.schem (&f%blocks% &7blocks). Every run now resets to this."
+snapshot-started: "&fReading the dungeon into schematics/dungeon_clean.schem. This takes a moment and does not stop the server."
+snapshot-saved: "&fSaved schematics/dungeon_clean.schem (&e%blocks% &fblocks). Every run now resets to this."
 snapshot-failed: "&cCould not save the snapshot. See the console."
-usage-door: "&7/dungeon door <define <id> | cuboid <id> <world> x1 y1 z1 x2 y2 z2 | list | delete <id> | open <id> | close <id>>"
-door-defined: "&7Door &f%id% &7saved with &f%blocks% &7gate blocks."
-door-list: "&7Doors: &f%doors%"
-door-deleted: "&7Door deleted."
+usage-door: "&f/dungeon door <define <id> | cuboid <id> <world> x1 y1 z1 x2 y2 z2 | list | delete <id> | open <id> | close <id>>"
+door-defined: "&fDoor &e%id% &fsaved with &e%blocks% &fgate blocks."
+door-list: "&fDoors: &e%doors%"
+door-deleted: "&fDoor deleted."
 door-unknown: "&cThere is no such door."
-usage-point: "&7/dungeon point <add|list|remove|clear> <group> [number]   /dungeon chest <add|list|remove|clear>"
-point-added: "&7Added to &f%group% &7(now &f%count%&7)."
-point-group: "&f%group% &8- &7%count% spots"
-point-line: "&f%number% &8- &7%spot%"
-point-removed: "&7Removed."
-point-cleared: "&7Cleared."
+usage-point: "&f/dungeon point <add|list|remove|clear> <group> [number]   /dungeon chest <add|list|remove|clear>"
+point-added: "&fAdded to &e%group% &f(now &e%count%&f)."
+point-group: "&e%group% &8| &f%count% spots"
+point-line: "&e%number% &8| &f%spot%"
+point-removed: "&fRemoved."
+point-cleared: "&fCleared."
 point-unknown: "&cThere is no such group or number."
 look-at-chest: "&cLook at the chest or barrel you want to mark."
-usage-paste: "&7/dungeon paste <file> [world x y z]"
+usage-paste: "&f/dungeon paste <file> [world x y z]   (files are read from plugins/Bastion/schematics)"
 paste-missing: "&cThe file or the world does not exist."
-paste-started: "&7Pasting. This is spread over many ticks and does not stop the server."
-paste-done: "&7Pasted: &f%blocks% &7blocks changed in &f%seconds% &7seconds."
+paste-started: "&fPasting. This is spread over many ticks and does not stop the server."
+paste-done: "&fPasted: &e%blocks% &fblocks changed in &e%seconds% &fseconds."
 paste-failed: "&cCould not read the schematic: %error%"
+
+# ---------------------------------------------------------------------------------------------------------------
+# The story. Every line the dungeon says, by what happened. The dungeon is a character with its own intent, not a
+# narrator: short sentences, present tense, no overacting.
+#
+# tier: NORMAL shows on the action bar and in dungeon chat. MAJOR adds a typed title on top, with title and color.
+# lines: one is picked at random each time (pick: sequential goes round in order instead)
+# sound: an optional sound, played to whoever sees the line
+# delay-ticks: wait this long before showing it
+# actionbar-only: true keeps it off the chat
+# cooldown-seconds and chance: how often it may fire per player, and the chance it does (for the frequent ones)
+# Placeholders: %player%, %boss%, %wave%, %found%, %total%. Everything stays inside the run.
+dialogue:
+  ON_ENTER_DUNGEON:
+    tier: MAJOR
+    title: "The Buried Throne"
+    color: "#C24141"
+    sound: "minecraft:ambient.cave"
+    lines:
+      - "You shouldn't have come here."
+      - "The doors remember every name that has entered."
+      - "Something already knows you're here."
+
+  ON_ROOM1_UNLOCK:
+    tier: NORMAL
+    lines:
+      - "Something old stirs behind these shelves."
+      - "The dust here hasn't settled in centuries. Until now."
+
+  ON_WAVE_START:
+    tier: NORMAL
+    lines:
+      - "It's not over."
+      - "More are coming. They always do."
+      - "Did you really think that was all of them?"
+
+  ON_ARTIFACT_FOUND:
+    tier: NORMAL
+    lines:
+      - "One piece returns to the light. (%found%/%total%)"
+      - "It didn't want to let that go. (%found%/%total%)"
+
+  ON_ROOM2_UNLOCK:
+    tier: NORMAL
+    lines:
+      - "The altar has been waiting for guests."
+      - "Whatever slept in the sanctum is stirring."
+
+  ON_MINIBOSS_SPAWN:
+    tier: MAJOR
+    title: "The Bloodwoken"
+    color: "#FF4D4D"
+    sound: "minecraft:entity.evoker.prepare_summon"
+    lines:
+      - "It rises from where it was laid to rest."
+      - "It remembers being alive. It resents you for reminding it."
+
+  ON_ROOM3_UNLOCK:
+    tier: NORMAL
+    lines:
+      - "Nine pieces. One throne. Choose carefully what happens next."
+
+  ON_BOSS_SPAWN:
+    tier: MAJOR
+    title: "The Buried Sovereign"
+    color: "#B87CFF"
+    sound: "minecraft:entity.warden.roar"
+    lines:
+      - "It has waited on that throne far longer than any of you have been alive."
+      - "The storm answers to it, not the other way around."
+
+  ON_BOSS_LOW_HP:
+    tier: NORMAL
+    lines:
+      - "It remembers pain now."
+      - "Its patience is gone. Yours should be too."
+
+  ON_VICTORY:
+    tier: MAJOR
+    title: "Victory"
+    color: "#F5C542"
+    lines:
+      - "The throne is empty. For now."
+      - "It's over, but thrones like this are never truly vacant for long."
+
+  ON_FAILURE:
+    tier: MAJOR
+    title: "Defeat"
+    color: "#E0E0E0"
+    lines:
+      - "It slipped back into the dark, laughing."
+      - "The dungeon keeps its throne. Try again when the next call for aid is answered."
+
+  # The two frequent ones stay on the action bar, never chat or a title, and only now and then.
+  ON_MOB_KILL:
+    tier: NORMAL
+    actionbar-only: true
+    cooldown-seconds: 18
+    chance: 35
+    lines:
+      - "One less thing in the dark."
+      - "Not bad."
+      - "It won't be the last."
+      - "You're learning."
+
+  ON_PLAYER_HURT_BY_MOB:
+    tier: NORMAL
+    actionbar-only: true
+    cooldown-seconds: 18
+    chance: 35
+    lines:
+      - "Careful."
+      - "It felt that one land."
+      - "You'll want to watch your footing."
+      - "It's enjoying this."
+
+  # Shown to everyone except the player who died.
+  ON_PLAYER_DEATH:
+    tier: MAJOR
+    title: "%player% has fallen"
+    color: "#C24141"
+    lines:
+      - "%player% won't be finishing this."
+      - "One down. It's still hungry."
+      - "%player% is gone. Who's next?"
+      - "It only needed one bite to remember how good this feels."

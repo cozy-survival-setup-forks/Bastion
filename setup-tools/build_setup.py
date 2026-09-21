@@ -5,14 +5,14 @@ Reads the schematic, closes the three archways with portcullis gates (iron bars)
 picks spawn points, chest spots and boss points from the real floor plan, and writes:
 
   Dungeons.schem   the castle with the gates built in (paste this into the Dungeons world)
-  regions.yml      spawn, room1-3 (polygons that follow the halls) and the DUNGEON box
-  doors.yml        the three gates
-  points.yml       anchor, mob spawn points, chest spots, altar and boss points
+  setup.yml        regions (spawn, rooms, room cores as polygons that follow the halls, and the DUNGEON box),
+                   the three gates, and the points (anchor, mob spawns, chests, altar, boss)
+  schematics/      the castle with the gates built in
 
 Everything is data: nothing here is compiled into the plugin. Usage:
   python build_setup.py <schematic> <output dir> [ox oy oz]
 """
-import gzip, io, json, random, struct, sys
+import gzip, io, json, os, random, struct, sys
 import numpy as np
 from scipy import ndimage
 from shapely.geometry import box as sbox
@@ -146,11 +146,16 @@ def floor_cells(name, x0, x1, z0, z1, r=1):
 
 
 # ------------------------------------------------------------------ region polygons
-def polygon_of(name, y0=6, y1=None):
+def polygon_of(name, y0=6, y1=None, clip=None):
     c = comp[name]
     ys, zs, xs = np.nonzero(c)
     top = int(ys.max()) if y1 is None else y1
     footprint = c[:top + 1].any(axis=0)
+    if clip is not None:
+        x0, x1, z0, z1 = clip
+        keep = np.zeros_like(footprint)
+        keep[z0:z1 + 1, x0:x1 + 1] = True
+        footprint = footprint & keep
     squares = [sbox(x, z, x + 1, z + 1) for z, x in zip(*np.nonzero(footprint))]
     shape = unary_union(squares)
     shape = shape.simplify(0.8, preserve_topology=True)
@@ -164,6 +169,16 @@ regions = {}
 for name, rtype in (('spawn', 'SPAWN'), ('room1', 'ROOM1'), ('room2', 'ROOM2'), ('room3', 'ROOM3')):
     pts, top = polygon_of(name)
     regions[name] = (rtype, pts, 6, min(top, 70))
+
+# the heart of each room: the fight starts when everybody is inside it, not merely in the corridor that leads there
+CORES = {
+    'room1_core': ('room1', (86, 156, 70, 140)),    # the rotunda, without the long corridor to the spawn hall
+    'room2_core': ('room2', (100, 140, 144, 161)),   # the south hall, a few blocks past its gate
+    'room3_core': ('room3', (41, 80, 89, 119)),      # the west hall, a few blocks past its gate
+}
+for cid, (source, clip) in CORES.items():
+    pts, top = polygon_of(source, clip=clip)
+    regions[cid] = ('OTHER', pts, 6, min(top, 70))
 
 # ------------------------------------------------------------------ points
 points = {}
@@ -211,7 +226,10 @@ for z in range(76, 134):
 placed = spread(corner, 12, 9)
 for x, z in placed:
     extra_barrels.append((x, 8, z))
-points['chests'] = ["%s %s %s %s 0.0 0.0" % (WORLD, x + ox + 0.5, 8 + oy, z + oz + 0.5) for x, _, z in extra_barrels]
+chest_spots = [(x, z) for x, _, z in extra_barrels]
+more = [c for c in corner if all((c[0] - d[0]) ** 2 + (c[1] - d[1]) ** 2 >= 49 for d in chest_spots)]
+chest_spots += spread(more, 12 - len(chest_spots), 7)
+points['chests'] = ["%s %s %s %s 0.0 0.0" % (WORLD, x + ox + 0.5, 8 + oy, z + oz + 0.5) for x, z in chest_spots]
 
 # ------------------------------------------------------------------ build the modified schematic
 out_arr = arr.copy()
@@ -260,7 +278,8 @@ for v in flat.tolist():
 w_named(buf, 7, "Data"); buf.write(struct.pack('>i', len(varints)) + bytes(varints))
 w_named(buf, 9, "BlockEntities"); buf.write(bytes([10]) + struct.pack('>i', 0))
 buf.write(b'\x00\x00\x00')
-with open(out + '/Dungeons.schem', 'wb') as fh:
+os.makedirs(out + '/schematics', exist_ok=True)
+with open(out + '/schematics/Dungeons.schem', 'wb') as fh:
     fh.write(gzip.compress(buf.getvalue(), 6))
 
 # ------------------------------------------------------------------ the yaml files
@@ -268,9 +287,10 @@ def yq(s):
     return '"%s"' % s
 
 
-with open(out + '/regions.yml', 'w', encoding='utf-8') as fh:
-    fh.write("# Bastion - regions.yml (default setup for CastleDungeon, world %s)\n" % WORLD)
-    fh.write("# Coordinates are world coordinates. The castle's minimum corner is at %d %d %d.\n" % (ox, oy, oz))
+with open(out + '/setup.yml', 'w', encoding='utf-8') as fh:
+    fh.write("# Bastion setup.yml (default setup for the castle, world %s)\n" % WORLD)
+    fh.write("# The whole build: regions, doors and points. World coordinates. The castle's minimum corner is at %d %d %d.\n" % (ox, oy, oz))
+    fh.write("# The in-game tools (/dungeon wand, region, door, point, chest) write to this file.\n\n")
     fh.write("regions:\n")
     for name, (rtype, pts, y0, y1) in regions.items():
         fh.write("  %s:\n    type: %s\n    world: %s\n    shape: polygon\n    points:\n" % (name, rtype, WORLD))
@@ -280,9 +300,8 @@ with open(out + '/regions.yml', 'w', encoding='utf-8') as fh:
     fh.write("  dungeon:\n    type: DUNGEON\n    world: %s\n    shape: cuboid\n" % WORLD)
     fh.write("    min: [%d, %d, %d]\n    max: [%d, %d, %d]\n" % (ox, oy, oz, ox + W - 1, oy + H - 1, oz + L - 1))
 
-with open(out + '/doors.yml', 'w', encoding='utf-8') as fh:
-    fh.write("# Bastion - doors.yml (default setup). Each door is a portcullis: the bars listed here are what fills the\n")
-    fh.write("# archway when it is closed. Opening lifts them layer by layer from the bottom.\ndoors:\n")
+    fh.write("\n# Each door is a portcullis: the bars listed here fill the archway when it is closed.\n")
+    fh.write("# Opening lifts them layer by layer from the bottom.\ndoors:\n")
     for gid, g in GATES.items():
         cells, state = gate_cells[gid]
         x0, x1 = g['x'][0] + ox, g['x'][1] + ox
@@ -292,16 +311,15 @@ with open(out + '/doors.yml', 'w', encoding='utf-8') as fh:
         for x, y, z in sorted(cells, key=lambda c: (c[1], c[2], c[0])):
             fh.write("      - %s\n" % yq("%d %d %d %s" % (x + ox - x0, y + oy - y0, z + oz - z0, state)))
 
-with open(out + '/points.yml', 'w', encoding='utf-8') as fh:
-    fh.write("# Bastion - points.yml (default setup). world x y z yaw pitch\n")
-    fh.write("#   anchor  where players arrive       room1 / room2  where mobs rise out of the ground\n")
-    fh.write("#   altar   where the mini-boss rises   guards         the throne room guards\n")
-    fh.write("#   boss    where the final boss rises (first) and repositions to (the rest)\n")
-    fh.write("#   chests  the barrels an artifact can be hidden in (more spots than artifacts)\npoints:\n")
+    fh.write("\n# world x y z yaw pitch\n")
+    fh.write("#   anchor  where players arrive       room1, room2  where mobs rise out of the ground\n")
+    fh.write("#   altar   where the mini-boss rises   guards        the throne room guards\n")
+    fh.write("#   boss    where the final boss rises (first) and moves to (the rest)\n")
+    fh.write("#   chests  where an artifact can hide. A chest is placed at any spot that is not a container yet\npoints:\n")
     for group, spots in points.items():
         fh.write("  %s:\n" % group)
-        for s in spots:
-            fh.write("    - %s\n" % yq(s))
+        for sp in spots:
+            fh.write("    - %s\n" % yq(sp))
 
 summary = {k: len(v) for k, v in points.items()}
 print("gates:", {g: len(c[0]) for g, c in gate_cells.items()})

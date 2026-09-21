@@ -106,7 +106,7 @@ public final class Doors {
     }
 
     private void save() {
-        YamlConfiguration yaml = new YamlConfiguration();
+        YamlConfiguration yaml = dev.bastion.util.SetupFile.open(file, "doors");
         for (Door door : doors.values()) {
             String path = "doors." + door.id;
             yaml.set(path + ".world", door.world);

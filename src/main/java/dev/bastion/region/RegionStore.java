@@ -1,5 +1,6 @@
 package dev.bastion.region;
 
+import dev.bastion.util.SetupFile;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -61,7 +62,7 @@ public final class RegionStore {
     }
 
     public void save() {
-        YamlConfiguration yaml = new YamlConfiguration();
+        YamlConfiguration yaml = SetupFile.open(file, "regions");
         for (Region region : index.all()) {
             String path = "regions." + region.id();
             yaml.set(path + ".type", region.type().name());

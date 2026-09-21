@@ -1,9 +1,9 @@
 package dev.bastion.dungeon;
 
 import dev.bastion.util.TaskBag;
+import dev.bastion.util.Titles;
 import dev.bastion.util.Text;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.title.Title;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.Sound;
@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -26,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 /**
- * dialogue.yml: every scripted line, keyed by what happened. NORMAL lines show on the action bar and in dungeon chat,
+ * messages.yml: every scripted line, keyed by what happened. NORMAL lines show on the action bar and in dungeon chat,
  * MAJOR ones add a title on top. Everything stays inside the run: nothing goes to global chat or screens.
  */
 public final class Dialogue {
@@ -38,27 +37,29 @@ public final class Dialogue {
     }
 
     private record Entry(boolean major, boolean actionBarOnly, boolean sequential, List<String> lines, Sound sound,
-                         int delayTicks, long cooldownMs, double chance) {
+                         int delayTicks, long cooldownMs, double chance, String title, String color) {
     }
 
     private final JavaPlugin plugin;
     private final Supplier<Collection<Player>> audience;
     private final TaskBag tasks;
+    private final Titles titles;
     private final Map<Trigger, Entry> entries = new EnumMap<>(Trigger.class);
     private final Map<Trigger, Integer> cursor = new EnumMap<>(Trigger.class);
     private final Map<Trigger, Map<UUID, Long>> cooldowns = new EnumMap<>(Trigger.class);
     private String chatPrefix = "";
 
-    public Dialogue(JavaPlugin plugin, Supplier<Collection<Player>> audience, TaskBag tasks) {
+    public Dialogue(JavaPlugin plugin, Supplier<Collection<Player>> audience, TaskBag tasks, Titles titles) {
         this.plugin = plugin;
         this.audience = audience;
         this.tasks = tasks;
+        this.titles = titles;
     }
 
     public void load() {
         entries.clear();
-        File file = new File(plugin.getDataFolder(), "dialogue.yml");
-        if (!file.exists()) plugin.saveResource("dialogue.yml", false);
+        File file = new File(plugin.getDataFolder(), "messages.yml");
+        if (!file.exists()) plugin.saveResource("messages.yml", false);
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         chatPrefix = yaml.getString("chat-prefix", "");
         ConfigurationSection all = yaml.getConfigurationSection("dialogue");
@@ -68,7 +69,7 @@ public final class Dialogue {
             try {
                 trigger = Trigger.valueOf(key.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("dialogue.yml: unknown trigger " + key);
+                plugin.getLogger().warning("messages.yml: unknown trigger " + key);
                 continue;
             }
             ConfigurationSection s = all.getConfigurationSection(key);
@@ -84,7 +85,8 @@ public final class Dialogue {
                     s.getBoolean("actionbar-only", false),
                     s.getString("pick", "random").equalsIgnoreCase("sequential"),
                     s.getStringList("lines"), sound, s.getInt("delay-ticks", 0),
-                    (long) (s.getDouble("cooldown-seconds", 0) * 1000), s.getDouble("chance", 100)));
+                    (long) (s.getDouble("cooldown-seconds", 0) * 1000), s.getDouble("chance", 100),
+                    s.getString("title", ""), s.getString("color", "#FFFFFF")));
         }
     }
 
@@ -126,15 +128,17 @@ public final class Dialogue {
         for (Map.Entry<String, String> e : ctx.entrySet()) line = line.replace("%" + e.getKey() + "%", e.getValue());
         Component text = Text.component(line);
         Component chat = Text.component(chatPrefix + line);
-        Title title = entry.major ? Title.title(Component.empty(), text,
-                Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(2500), Duration.ofMillis(700))) : null;
+        String heading = entry.title;
+        for (Map.Entry<String, String> e : ctx.entrySet()) heading = heading.replace("%" + e.getKey() + "%", e.getValue());
+        String plainLine = line;
 
+        String shownHeading = heading;
         Runnable send = () -> {
+            if (entry.major && !shownHeading.isEmpty()) titles.type(targets, shownHeading, entry.color, plainLine);
             for (Player p : targets) {
                 if (!p.isOnline()) continue;
                 p.sendActionBar(text);
                 if (!entry.actionBarOnly) p.sendMessage(chat);
-                if (title != null) p.showTitle(title);
                 if (entry.sound != null) p.playSound(p.getLocation(), entry.sound, 0.7f, 1f);
             }
         };

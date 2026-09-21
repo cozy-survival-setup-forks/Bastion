@@ -2,12 +2,10 @@ package dev.bastion.dungeon;
 
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,14 +49,12 @@ public final class Rewards {
 
     public void load() {
         tiers.clear();
-        File file = new File(plugin.getDataFolder(), "rewards.yml");
-        if (!file.exists()) plugin.saveResource("rewards.yml", false);
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
-        var section = yaml.getConfigurationSection("tiers");
+        var yaml = plugin.getConfig();
+        var section = yaml.getConfigurationSection("rewards.tiers");
         if (section != null) {
             for (String tier : section.getKeys(false)) tiers.put(tier, rolls(section.getMapList(tier)));
         }
-        victory = rolls(yaml.getMapList("victory"));
+        victory = rolls(yaml.getMapList("rewards.victory"));
     }
 
     private static List<Roll> rolls(List<Map<?, ?>> maps) {
