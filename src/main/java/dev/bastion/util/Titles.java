@@ -61,7 +61,7 @@ public final class Titles {
             }
             if (typed < 0) return true;
             if (typed < sub.length()) {
-                Component part = MINI.deserialize("<" + color + ">★</" + color + "> <white>" + escape(sub.substring(0, typed + 1)) + "</white> <" + color + ">★</" + color + ">");
+                Component part = MINI.deserialize("<" + color + ">🗡</" + color + "> <white>" + escape(sub.substring(0, typed + 1)) + "</white> <" + color + ">🗡</" + color + ">");
                 for (Player p : players) if (p.isOnline()) p.sendTitlePart(TitlePart.SUBTITLE, part);
                 click(players, typed, 0.25f, 1.8f);
                 return true;

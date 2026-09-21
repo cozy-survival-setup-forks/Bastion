@@ -12,16 +12,18 @@ code.
 
 | Download | What it is |
 | --- | --- |
-| `Bastion-1.2.0.jar` | The plugin |
+| `Bastion-1.2.1.jar` | The plugin |
 | `Dungeons-world.zip` | A ready world called `Dungeons` with the castle pasted in, gates built, and the game rules set. Import it with the Worlds plugin |
 | `Bastion-default-setup.zip` | `setup.yml` (regions, doors and points) and the `schematics` folder for that world: `dungeon_clean.schem` (the snapshot every run resets to) and `Dungeons.schem` (the castle with the gates, for pasting elsewhere) |
 
 ## Setting it up
 
-1. Put `Bastion-1.2.0.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
+1. Put `Bastion-1.2.1.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
 2. Unzip `Dungeons-world.zip` into the server folder and import `Dungeons` with the Worlds plugin.
 3. Unzip `Bastion-default-setup.zip` into `plugins/Bastion` and restart.
 4. `/dungeon` opens the menu. `/dungeon forcestart` opens the dungeon at once, for a test.
+
+Coming from 1.2? The first gate moved to the archway into the rotunda, and artifacts and rewards use a new layout: delete `config.yml` and `setup.yml`, then import the new world zip (or re-paste the castle and run `/dungeon region setclean`).
 
 Coming from 1.1? Delete `config.yml`, `messages.yml`, `mobs.yml` and `setup.yml` (the new ones add mixed waves, more mobs, room 2 chests, the announcement blocks and guard spawn points), use the new setup zip, then re-paste the castle so the lowered gold blocks and room 2 barrels exist: `/dungeon paste Dungeons.schem Dungeons -251 135 -326`, then `/dungeon region setclean`. Or import the new `Dungeons-world.zip` instead.
 

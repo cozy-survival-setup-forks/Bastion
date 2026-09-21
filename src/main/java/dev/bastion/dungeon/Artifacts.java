@@ -66,24 +66,33 @@ public final class Artifacts {
     public void load() {
         templates.clear();
         var yaml = plugin.getConfig();
-        for (Map<?, ?> m : yaml.getMapList("artifacts.items")) {
-            Template t = template(m, false);
-            if (t != null) templates.put(t.id, t);
+        ConfigurationSection items = yaml.getConfigurationSection("artifacts.items");
+        if (items != null) {
+            for (String key : items.getKeys(false)) {
+                ConfigurationSection item = items.getConfigurationSection(key);
+                Template t = item == null ? null : template(key, item.getValues(false));
+                if (t != null) templates.put(t.id, t);
+            }
         }
         ConfigurationSection s = yaml.getConfigurationSection("artifacts.special");
-        special = s == null ? null : template(s.getValues(false), true);
+        if (s != null) {
+            String first = s.getKeys(false).stream().findFirst().orElse(null);
+            ConfigurationSection inner = first == null ? null : s.getConfigurationSection(first);
+            special = inner == null ? null : template(first, inner.getValues(false));
+        } else {
+            special = null;
+        }
     }
 
-    private Template template(Map<?, ?> m, boolean isSpecial) {
-        String id = String.valueOf(m.get("id"));
+    private Template template(String id, Map<?, ?> m) {
         Material material = Material.matchMaterial(String.valueOf(m.get("material")));
-        if (material == null || id.equals("null")) {
+        if (material == null) {
             plugin.getLogger().warning("artifacts.yml: '" + id + "' has no valid id or material, skipping it");
             return null;
         }
         List<String> lore = new ArrayList<>();
         if (m.get("lore") instanceof List<?> l) l.forEach(o -> lore.add(String.valueOf(o)));
-        return new Template(id, material, String.valueOf(m.get("name") == null ? id : m.get("name")), lore,
+        return new Template(id, material, String.valueOf(m.get("display_name") == null ? id : m.get("display_name")), lore,
                 m.get("custom-model-data") instanceof Number n ? n.intValue() : 0,
                 m.get("consume") instanceof Boolean b ? b : false);
     }

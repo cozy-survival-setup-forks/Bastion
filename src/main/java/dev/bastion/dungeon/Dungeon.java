@@ -60,6 +60,10 @@ public final class Dungeon {
     public final JavaPlugin plugin;
     public Settings settings;
     public dev.bastion.world.SnapshotEditor editor;
+    private final net.kyori.adventure.bossbar.BossBar waveBar = net.kyori.adventure.bossbar.BossBar.bossBar(Component.empty(), 1f,
+            net.kyori.adventure.bossbar.BossBar.Color.RED, net.kyori.adventure.bossbar.BossBar.Overlay.PROGRESS);
+    private final java.util.Set<java.util.UUID> onWaveBar = new java.util.HashSet<>();
+    private int waveTotal = 1;
     public final Messages messages;
     public final RegionIndex regions;
     public final Points points;
@@ -355,6 +359,7 @@ public final class Dungeon {
         if (now < nextSecond) return;
         nextSecond = now + 1000;
 
+        waveBar();
         if (waiting()) waitingBar(now);
         switch (state) {
             case OPEN -> tickOpen(now);
@@ -382,6 +387,25 @@ public final class Dungeon {
             return;
         }
         if (state.active()) sweepIntruders();
+    }
+
+    /** The wave number and how many mobs are left, as a bossbar for everyone in the run while a wave is on. */
+    private void waveBar() {
+        boolean on = waves.running() && waves.wave() > 0;
+        List<Player> here = on ? new ArrayList<>(players()) : List.of();
+        for (java.util.Iterator<java.util.UUID> it = onWaveBar.iterator(); it.hasNext(); ) {
+            java.util.UUID id = it.next();
+            Player p = Bukkit.getPlayer(id);
+            if (p != null && here.contains(p)) continue;
+            if (p != null) p.hideBossBar(waveBar);
+            it.remove();
+        }
+        if (!on) return;
+        int left = waves.remaining();
+        waveTotal = Math.max(waveTotal, left);
+        waveBar.name(messages.text("wave-bar", "wave", String.valueOf(waves.wave()), "waves", String.valueOf(waves.waveCount()), "left", String.valueOf(left)));
+        waveBar.progress(Math.max(0f, Math.min(1f, left / (float) waveTotal)));
+        for (Player p : here) if (onWaveBar.add(p.getUniqueId())) p.showBossBar(waveBar);
     }
 
     /** True while players are waiting in the spawn hall for the run to begin. */
@@ -551,6 +575,7 @@ public final class Dungeon {
     }
 
     private void waveStarted(int number, String name) {
+        waveTotal = Math.max(1, waves.remaining());
         dialogue.fire(Trigger.ON_WAVE_START, Map.of("wave", String.valueOf(number)));
         titles.type(players(), messages.raw("wave-title", "wave", String.valueOf(number)), "#FF5555", messages.raw("wave-subtitle"));
         for (Player p : players()) p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, 0.5f, 1.2f);

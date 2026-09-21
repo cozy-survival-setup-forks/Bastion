@@ -86,6 +86,11 @@ public final class Waves {
         return alive.size();
     }
 
+    /** Mobs of this wave still to kill: alive and waiting to come up. */
+    public int remaining() {
+        return alive.size() + queue.size();
+    }
+
     public int wave() {
         return wave;
     }

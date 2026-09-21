@@ -36,6 +36,8 @@ mobs:
   scale-with-players: true
   # Each extra player adds this share of a wave (0.5 means +50% of the wave per extra player).
   extra-per-player: 0.75
+  # Each extra player adds this share of the bosses' base health (0.5 = +50%).
+  boss-health-per-player: 0.5
   # The most mobs alive at once, however big the wave. The rest come as earlier ones die.
   max-active: 8
   # Each extra player in the room lets this many more be alive at once, up to hard-cap.
@@ -139,70 +141,120 @@ artifacts:
   consume-on-victory: false
   # How the mini-boss artifacts are handed out: auto (one each to the nearest players) or drop (on the ground)
   room2-mode: auto
+  # One section per artifact, like an item in DeluxeMenus: material, display_name, lore, custom_model_data, consume
   items:
-    - id: whispering_tome
+    whispering_tome:
       material: BOOK
-      name: "&5Whispering Tome"
-      lore: ["&7Its pages turn when nobody is reading.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: veiled_candle
+      display_name: "&5Whispering Tome"
+      lore:
+        - "&7Its pages turn when nobody is reading."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    veiled_candle:
       material: CANDLE
-      name: "&fVeiled Candle"
-      lore: ["&7The flame gives no light, only shadow.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: hollow_chalice
+      display_name: "&fVeiled Candle"
+      lore:
+        - "&7The flame gives no light, only shadow."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    hollow_chalice:
       material: GLASS_BOTTLE
-      name: "&3Hollow Chalice"
-      lore: ["&7Always empty. Never dry.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: ashen_seal
+      display_name: "&3Hollow Chalice"
+      lore:
+        - "&7Always empty. Never dry."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    ashen_seal:
       material: FIRE_CHARGE
-      name: "&cAshen Seal"
-      lore: ["&7Warm, like something recently alive.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: bone_key
+      display_name: "&cAshen Seal"
+      lore:
+        - "&7Warm, like something recently alive."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    bone_key:
       material: BONE
-      name: "&fBone Key"
-      lore: ["&7It fits a lock you have not found yet.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: weeping_mask
+      display_name: "&fBone Key"
+      lore:
+        - "&7It fits a lock you have not found yet."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    weeping_mask:
       material: CARVED_PUMPKIN
-      name: "&8Weeping Mask"
-      lore: ["&7It was never made to be worn.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: gilded_thorn
+      display_name: "&8Weeping Mask"
+      lore:
+        - "&7It was never made to be worn."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    gilded_thorn:
       material: GOLDEN_SWORD
-      name: "&6Gilded Thorn"
-      lore: ["&7Sharp on every side, including yours.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: sunken_crown
+      display_name: "&6Gilded Thorn"
+      lore:
+        - "&7Sharp on every side, including yours."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    sunken_crown:
       material: GOLDEN_HELMET
-      name: "&eSunken Crown"
-      lore: ["&7Whoever wore it did not choose to.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
-    - id: last_ember
+      display_name: "&eSunken Crown"
+      lore:
+        - "&7Whoever wore it did not choose to."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
+    last_ember:
       material: BLAZE_POWDER
-      name: "&6Last Ember"
-      lore: ["&7The final piece. It is still burning.", "", "&8Found by %player_found_by%, %find_order% of %total%"]
+      display_name: "&6Last Ember"
+      lore:
+        - "&7The final piece. It is still burning."
+        - ""
+        - "&8Found by %player_found_by%, %find_order% of %total%"
   special:
-    id: sovereign_relic
-    material: NETHER_STAR
-    name: "&5&lSovereign's Relic"
-    lore: ["&7Proof that you stood before the throne.", "&7The dungeon shop takes it as payment."]
+    sovereign_relic:
+      material: NETHER_STAR
+      display_name: "&5&lSovereign's Relic"
+      lore:
+        - "&7Proof that you stood before the throne."
+        - "&7The dungeon shop takes it as payment."
 
 # ---------------------------------------------------------------------------------------------------------------
-# Rewards. Each entry is one roll:
-#   chance: percent, 100 = always    money: an amount or [min, max], paid through Vault
-#   coins: an amount or [min, max]. Kept on the player (%dungeon_coins%), or paid with coins-command
-#   commands: console commands, %player% is the player
+# Rewards. Each entry is one roll, a chance and a list of commands run for the player, like DeluxeMenus actions:
+#   [MONEY] 5000 or [MONEY] 2-5      paid through Vault
+#   [COINS] 250 or [COINS] 5-15      kept on the player (%dungeon_coins%), or paid with coins-command
+#   [CONSOLE] give %player% diamond 1   a console command   (a line with no tag is also a console command)
+#   [PLAYER] spawn                   a command run as the player
+#   [MESSAGE] &fWell done            a message to the player
 # Kill rewards go to the player credited with the kill. The tier is the `tier:` of the mob in mobs.yml.
 rewards:
   # If the server already has a points plugin, put its give command here (%player%, %amount%). Empty keeps the coins on the player.
   coins-command: ""
   tiers:
     room1:
-      - {chance: 30, coins: [5, 15]}
-      - {chance: 10, money: [2, 5]}
+      coins:
+        chance: 30
+        commands: ["[COINS] 5-15"]
+      money:
+        chance: 10
+        commands: ["[MONEY] 2-5"]
     room2:
-      - {chance: 45, coins: [10, 30]}
-      - {chance: 18, money: [5, 12]}
+      coins:
+        chance: 45
+        commands: ["[COINS] 10-30"]
+      money:
+        chance: 18
+        commands: ["[MONEY] 5-12"]
     guards:
-      - {chance: 100, coins: [20, 30]}
-      - {chance: 30, money: [10, 25]}
+      coins:
+        chance: 100
+        commands: ["[COINS] 20-30"]
+      money:
+        chance: 30
+        commands: ["[MONEY] 10-25"]
     miniboss:
-      - {chance: 100, coins: [60, 90], money: [50, 80]}
+      loot:
+        chance: 100
+        commands: ["[COINS] 60-90", "[MONEY] 50-80"]
   # Paid to every player still in the run when the final boss dies.
   victory:
-    - {chance: 100, money: 5000, coins: 250, commands: []}
+    reward:
+      chance: 100
+      commands:
+        - "[MONEY] 5000"
+        - "[COINS] 250"

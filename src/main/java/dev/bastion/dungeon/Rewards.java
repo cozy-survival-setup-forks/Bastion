@@ -30,7 +30,7 @@ public final class Rewards {
         String format(double amount);
     }
 
-    private record Roll(double chance, long[] money, long[] coins, List<String> commands) {
+    private record Roll(double chance, List<String> commands) {
     }
 
     public static final NamespacedKey COINS = new NamespacedKey("bastion", "coins");
@@ -52,31 +52,20 @@ public final class Rewards {
         var yaml = plugin.getConfig();
         var section = yaml.getConfigurationSection("rewards.tiers");
         if (section != null) {
-            for (String tier : section.getKeys(false)) tiers.put(tier, rolls(section.getMapList(tier)));
+            for (String tier : section.getKeys(false)) tiers.put(tier, rolls(section.getConfigurationSection(tier)));
         }
-        victory = rolls(yaml.getMapList("rewards.victory"));
+        victory = rolls(yaml.getConfigurationSection("rewards.victory"));
     }
 
-    private static List<Roll> rolls(List<Map<?, ?>> maps) {
+    private static List<Roll> rolls(org.bukkit.configuration.ConfigurationSection section) {
         List<Roll> list = new ArrayList<>();
-        for (Map<?, ?> m : maps) {
-            List<String> commands = new ArrayList<>();
-            if (m.get("commands") instanceof List<?> l) l.forEach(o -> commands.add(String.valueOf(o)));
-            list.add(new Roll(number(m.get("chance"), 100), range(m.get("money")), range(m.get("coins")), commands));
+        if (section == null) return list;
+        for (String key : section.getKeys(false)) {
+            var entry = section.getConfigurationSection(key);
+            if (entry == null) continue;
+            list.add(new Roll(entry.getDouble("chance", 100), entry.getStringList("commands")));
         }
         return list;
-    }
-
-    private static double number(Object o, double fallback) {
-        return o instanceof Number n ? n.doubleValue() : fallback;
-    }
-
-    private static long[] range(Object o) {
-        if (o instanceof Number n) return new long[]{n.longValue(), n.longValue()};
-        if (o instanceof List<?> l && l.size() >= 2 && l.get(0) instanceof Number a && l.get(1) instanceof Number b) {
-            return new long[]{a.longValue(), Math.max(a.longValue(), b.longValue())};
-        }
-        return null;
     }
 
     public void kill(Player killer, String tier) {
@@ -92,20 +81,43 @@ public final class Rewards {
     private void roll(Player player, Roll roll, boolean announce) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         if (roll.chance < 100 && rng.nextDouble() * 100 >= roll.chance) return;
-        if (roll.money != null) {
-            long amount = rng.nextLong(roll.money[0], roll.money[1] + 1);
-            Economy eco = economy.get();
-            if (amount > 0 && eco != null) {
-                eco.deposit(player, amount);
-                if (announce) player.sendMessage(net.kyori.adventure.text.Component.text("+" + eco.format(amount)));
+        for (String line : roll.commands) {
+            String tag = "CONSOLE";
+            String rest = line.trim();
+            if (rest.startsWith("[") && rest.indexOf(']') > 0) {
+                tag = rest.substring(1, rest.indexOf(']')).toUpperCase(java.util.Locale.ROOT);
+                rest = rest.substring(rest.indexOf(']') + 1).trim();
+            }
+            rest = rest.replace("%player%", player.getName());
+            switch (tag) {
+                case "MONEY" -> {
+                    long amount = amount(rest, rng);
+                    Economy eco = economy.get();
+                    if (amount > 0 && eco != null) {
+                        eco.deposit(player, amount);
+                        if (announce) player.sendMessage(net.kyori.adventure.text.Component.text("+" + eco.format(amount)));
+                    }
+                }
+                case "COINS" -> {
+                    long amount = amount(rest, rng);
+                    if (amount > 0) giveCoins(player, amount);
+                }
+                case "MESSAGE" -> player.sendMessage(dev.bastion.util.Text.component(rest));
+                case "PLAYER" -> Bukkit.dispatchCommand(player, rest);
+                default -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), rest);
             }
         }
-        if (roll.coins != null) {
-            long amount = rng.nextLong(roll.coins[0], roll.coins[1] + 1);
-            if (amount > 0) giveCoins(player, amount);
-        }
-        for (String command : roll.commands) {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", player.getName()));
+    }
+
+    /** "5000" or "5-15". */
+    private static long amount(String text, ThreadLocalRandom rng) {
+        try {
+            String[] p = text.split("-", 2);
+            long a = Long.parseLong(p[0].trim());
+            long b = p.length > 1 ? Long.parseLong(p[1].trim()) : a;
+            return rng.nextLong(Math.min(a, b), Math.max(a, b) + 1);
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 

@@ -182,6 +182,14 @@ public final class Bosses {
             return null;
         }
         LivingEntity entity = mobs.create(def.mob, ground);
+        // more health for a bigger party: each extra player adds this share of the base health
+        double extra = plugin.getConfig().getDouble("mobs.boss-health-per-player", 0.5);
+        var maxHealth = entity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        int party = Math.max(1, alive.get().size());
+        if (maxHealth != null && party > 1 && extra > 0) {
+            maxHealth.setBaseValue(maxHealth.getBaseValue() * (1 + extra * (party - 1)));
+            entity.setHealth(maxHealth.getValue());
+        }
         BossBar bar = BossBar.bossBar(Text.component(def.mob.name()), 1f, def.color, def.overlay);
         BossFight fight = new BossFight(def, entity, bar, events);
         fights.add(fight);

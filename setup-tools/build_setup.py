@@ -87,7 +87,7 @@ def pal(state):
 # ------------------------------------------------------------------ the gates
 # Each gate is a single layer of iron bars filling an archway. plane = the axis that stays fixed.
 GATES = {
-    'door_room1': dict(x=(189, 189), y=(8, 14), z=(101, 107), axis='x'),   # spawn hall to the rotunda
+    'door_room1': dict(x=(155, 155), y=(8, 15), z=(100, 108), axis='x'),   # the archway into the rotunda
     'door_room2': dict(x=(113, 127), y=(8, 18), z=(141, 141), axis='z'),   # rotunda to the south hall
     'door_room3': dict(x=(85, 85), y=(8, 18), z=(100, 108), axis='x'),     # rotunda to the west hall
 }
@@ -112,7 +112,7 @@ for cells, _ in gate_cells.values():
     for x, y, z in cells:
         shut[y, z, x] = False
 lab, n = ndimage.label(shut)
-ROOMS = {'spawn': (200, 9, 100), 'room1': (170, 9, 104), 'room2': (120, 9, 150), 'room3': (60, 9, 104)}
+ROOMS = {'spawn': (200, 9, 100), 'room1': (130, 9, 104), 'room2': (120, 9, 150), 'room3': (60, 9, 104)}
 comp = {k: lab == lab[y, z, x] for k, (x, y, z) in ROOMS.items()}
 for k, c in comp.items():
     assert c.sum() > 1000, k
@@ -172,7 +172,7 @@ for name, rtype in (('spawn', 'SPAWN'), ('room1', 'ROOM1'), ('room2', 'ROOM2'), 
 
 # the heart of each room: the fight starts when everybody is inside it, not merely in the corridor that leads there
 CORES = {
-    'room1_core': ('room1', (86, 156, 70, 140)),    # the rotunda, without the long corridor to the spawn hall
+    'room1_core': ('room1', (86, 141, 70, 140)),    # the rotunda, well past its archway
     'room2_core': ('room2', (100, 140, 144, 161)),   # the south hall, a few blocks past its gate
     'room3_core': ('room3', (41, 80, 89, 119)),      # the west hall, a few blocks past its gate
 }
@@ -191,7 +191,7 @@ def spot(x, z, y=8, yaw=0.0):
 points['anchor'] = [spot(200, 104, 8, 90.0)]
 
 # room 1: mobs come up in the rotunda, away from the walls
-r1 = floor_cells('room1', 92, 152, 74, 134, r=2)
+r1 = floor_cells('room1', 92, 146, 74, 134, r=2)
 r1 = [c for c in r1 if not (114 <= c[0] <= 126 and 94 <= c[1] <= 114)]        # not on the shrine itself
 points['room1'] = [spot(x, z) for x, z in spread(r1, 16, 6)]
 
