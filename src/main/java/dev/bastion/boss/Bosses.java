@@ -59,7 +59,7 @@ public final class Bosses {
 
     public record BossDef(String id, MobDef mob, double scale, BossBar.Color color, BossBar.Overlay overlay,
                           List<AbilityDef> abilities, long gapMinMs, long gapMaxMs, double lowHp, double lowHpScale,
-                          boolean dramaticDeath, double damageCap) {
+                          boolean dramaticDeath, double damageCap, long enrageEveryMs, double enrageMultiplier, int enrageMaxStacks) {
     }
 
     /** Callbacks the dungeon gives a fight. */
@@ -85,6 +85,8 @@ public final class Bosses {
         String forced;
         Player lastHit;
         float lastProgress = -1;
+        long startedAt;
+        int enrageStacks;
 
         BossFight(BossDef def, LivingEntity entity, BossBar bar, Events events) {
             this.def = def;
@@ -151,7 +153,8 @@ public final class Bosses {
                 BossBar.Overlay.valueOf((bar == null ? "PROGRESS" : bar.getString("style", "PROGRESS")).toUpperCase(Locale.ROOT)),
                 abilities, (long) (s.getDouble("ability-gap-min", 5) * 1000), (long) (s.getDouble("ability-gap-max", 9) * 1000),
                 s.getDouble("low-health", 0.3), s.getDouble("low-health-scale", 1.1), s.getBoolean("dramatic-death", false),
-                s.getDouble("damage-cap", 6));
+                s.getDouble("damage-cap", 6), (long) (s.getDouble("enrage-every-seconds", 90) * 1000),
+                Math.max(1, s.getDouble("enrage-multiplier", 1.15)), Math.max(0, s.getInt("enrage-max-stacks", 6)));
     }
 
     public BossDef def(String id) {
@@ -202,6 +205,7 @@ public final class Bosses {
             long now = System.currentTimeMillis();
             fight.busyUntil = 0;
             fight.nextAbilityAt = now + 4000;
+            fight.startedAt = now;
             if (entity instanceof Warden warden) for (Player p : alive.get()) warden.setAnger(p, 150);
         });
         return fight;
@@ -231,8 +235,28 @@ public final class Bosses {
                 Mobs.setScale(fight.entity, fight.def.scale * fight.def.lowHpScale);
                 fight.events.lowHealth(fight);
             }
+            tickEnrage(fight, now);
             if (now >= fight.nextAbilityAt) runAbility(fight, now);
         }
+    }
+
+    /**
+     * A long fight ends because the boss got dangerous, not because the run's hard time limit silently failed it:
+     * every enrage-every-seconds it survives, its melee damage and scripted-hit cap both grow, up to the stack cap.
+     */
+    private void tickEnrage(BossFight fight, long now) {
+        if (fight.def.enrageEveryMs <= 0 || fight.enrageStacks >= fight.def.enrageMaxStacks || fight.startedAt == 0) return;
+        int shouldBe = Math.min(fight.def.enrageMaxStacks, (int) ((now - fight.startedAt) / fight.def.enrageEveryMs));
+        if (shouldBe <= fight.enrageStacks) return;
+        fight.enrageStacks = shouldBe;
+        AttributeInstance dmg = fight.entity.getAttribute(Attribute.ATTACK_DAMAGE);
+        if (dmg != null) dmg.setBaseValue(dmg.getBaseValue() * fight.def.enrageMultiplier);
+        fx.sound(Sound.ENTITY_WITHER_AMBIENT, fight.entity.getLocation(), 1.2f, 0.7f);
+        fx.particle(Particle.ANGRY_VILLAGER, fight.entity.getLocation().add(0, fight.entity.getHeight() + 0.5, 0), 6, 0.4, 0.2, 0.4, 0);
+    }
+
+    private double enrageCap(BossFight fight) {
+        return fight.def.damageCap * Math.pow(fight.def.enrageMultiplier, fight.enrageStacks);
     }
 
     private void updateBar(BossFight fight) {
@@ -408,6 +432,8 @@ public final class Bosses {
                 if (fight.cooldowns.getOrDefault(a.id, 0L) > now) continue;
                 if (a.params.getBoolean("once", false) && fight.usedOnce.contains(a.id)) continue;
                 if (a.id.equals("reposition") && points.get("boss").size() < 2) continue;
+                // phase 1 abilities (the default) are always eligible; phase 2 ones only join in once it is hurt
+                if (a.params.getInt("phase", 1) > (fight.lowTriggered ? 2 : 1)) continue;
                 ready.add(a);
                 total += a.weight;
             }
@@ -451,7 +477,7 @@ public final class Bosses {
     private long perform(BossFight fight, AbilityDef a, Player target) {
         LivingEntity boss = fight.entity;
         ConfigurationSection p = a.params;
-        double cap = fight.def.damageCap;
+        double cap = enrageCap(fight);
         switch (a.id) {
             case "darkness" -> {
                 int seconds = p.getInt("seconds", 4);

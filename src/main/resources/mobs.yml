@@ -373,6 +373,11 @@ bosses:
     low-health-scale: 1.12
     dramatic-death: true
     damage-cap: 7
+    # every enrage-every-seconds it survives, melee damage and scripted-hit damage both grow by the multiplier,
+    # up to enrage-max-stacks. A long fight should end because this got dangerous, not because time ran out.
+    enrage-every-seconds: 90
+    enrage-multiplier: 1.15
+    enrage-max-stacks: 6
     abilities:
       arrow_rain:
         weight: 3
@@ -397,12 +402,15 @@ bosses:
       reposition:
         weight: 2
         cooldown: 30
+      # phase 2: only joins the rotation once the boss is hurt (see low-health above), for a fight that gets
+      # meaner instead of just tankier
       sonic_shriek:
         weight: 3
         cooldown: 16
         range: 16
         angle: 25
         damage: 9
+        phase: 2
       summon_wraiths:
         weight: 2
         cooldown: 40
@@ -420,6 +428,7 @@ bosses:
         cooldown: 22
         seconds: 2
         then: arrow_rain
+        phase: 2
       darkness:
         weight: 1
         cooldown: 60
