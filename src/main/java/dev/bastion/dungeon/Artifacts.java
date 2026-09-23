@@ -286,12 +286,52 @@ public final class Artifacts {
 
     /** The special artifact, the shop currency. Not counted with the nine. */
     public ItemStack makeSpecial() {
+        return makeSpecial(1);
+    }
+
+    private ItemStack makeSpecial(int amount) {
         if (special == null) return null;
         ItemStack item = make(special, null, 0);
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().set(SHOP, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
+        item.setAmount(Math.max(1, amount));
         return item;
+    }
+
+    /** Drops `amount` of the shop currency straight into a player's inventory, for kill/boss rewards. */
+    public void giveShopCurrency(Player player, int amount) {
+        ItemStack item = makeSpecial(amount);
+        if (item == null) return;
+        var leftover = player.getInventory().addItem(item);
+        leftover.values().forEach(rest -> player.getWorld().dropItemNaturally(player.getLocation(), rest));
+    }
+
+    /** How much shop currency a player is carrying right now. It lives in their inventory, not a counter. */
+    public int shopCurrency(Player player) {
+        int total = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(SHOP, PersistentDataType.BYTE)) {
+                total += item.getAmount();
+            }
+        }
+        return total;
+    }
+
+    /** Removes `amount` of the shop currency from a player's inventory. Returns false (and takes nothing) if short. */
+    public boolean takeShopCurrency(Player player, int amount) {
+        if (shopCurrency(player) < amount) return false;
+        int left = amount;
+        var contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length && left > 0; i++) {
+            ItemStack item = contents[i];
+            if (item == null || !item.hasItemMeta() || !item.getItemMeta().getPersistentDataContainer().has(SHOP, PersistentDataType.BYTE)) continue;
+            int take = Math.min(left, item.getAmount());
+            left -= take;
+            if (take >= item.getAmount()) player.getInventory().setItem(i, null);
+            else item.setAmount(item.getAmount() - take);
+        }
+        return true;
     }
 
     private boolean ofThisRun(ItemStack item) {

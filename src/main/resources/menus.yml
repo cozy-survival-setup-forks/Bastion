@@ -110,3 +110,57 @@ menus:
           - "&7Artifacts found: &f%dungeon_artifacts_found%&7/&f%dungeon_artifacts_total%"
           - "&7Time left: &f%dungeon_run_time_left%"
           - "&7Last result: &f%dungeon_last_result%"
+
+  # Example shop, spent with the dungeon shard from rewards.tiers' [SHOP] rolls. Open with /dungeon menu shop.
+  # These are placeholder items — replace them with whatever you actually want to sell. A priced item always
+  # gives a plain copy of its own material/amount on purchase; use actions instead of price for anything fancier.
+  shop:
+    title: "&2Dungeon Shop"
+    rows: 3
+    items:
+      filler:
+        slots: ["0-26"]
+        priority: -1
+        material: GREEN_STAINED_GLASS_PANE
+        name: " "
+      balance:
+        slot: 4
+        priority: 1
+        material: PRISMARINE_SHARD
+        name: "&bYour shards"
+        lore:
+          - "&7You have &f%dungeon_shop_currency% &7shards."
+      sword:
+        slot: 10
+        priority: 1
+        material: DIAMOND_SWORD
+        name: "&bTempered Blade"
+        price: 25
+        lore:
+          - "&7A dungeon-only weapon."
+          - ""
+          - "&7Price: &e%price% shards"
+          - "&aClick to buy"
+      totem:
+        slot: 13
+        priority: 1
+        material: TOTEM_OF_UNDYING
+        name: "&dSecond Wind"
+        price: 40
+        lore:
+          - "&7A second chance, for a price."
+          - ""
+          - "&7Price: &e%price% shards"
+          - "&aClick to buy"
+      potion:
+        slot: 16
+        priority: 1
+        material: SPLASH_POTION
+        name: "&9Vial of Haste"
+        price: 8
+        amount: 3
+        lore:
+          - "&7Three potions, for the next run."
+          - ""
+          - "&7Price: &e%price% shards"
+          - "&aClick to buy"

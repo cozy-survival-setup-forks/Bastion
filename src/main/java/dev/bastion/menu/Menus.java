@@ -54,7 +54,7 @@ public final class Menus implements Listener {
     }
 
     private record Item(int slot, int priority, Set<DungeonState> states, Material material, String name,
-                        List<String> lore, boolean glow, int amount, List<String> any, List<String> left, List<String> right) {
+                        List<String> lore, boolean glow, int amount, List<String> any, List<String> left, List<String> right, int price) {
     }
 
     private record Menu(String id, String title, int rows, List<Item> items) {
@@ -183,7 +183,8 @@ public final class Menus implements Listener {
         for (int slot : slots) {
             made.add(new Item(slot, s.getInt("priority", 0), states, material, s.getString("name", " "),
                     s.getStringList("lore"), s.getBoolean("glow", false), Math.max(1, s.getInt("amount", 1)),
-                    s.getStringList("actions"), s.getStringList("left-actions"), s.getStringList("right-actions")));
+                    s.getStringList("actions"), s.getStringList("left-actions"), s.getStringList("right-actions"),
+                    Math.max(0, s.getInt("price", 0))));
         }
         return made;
     }
@@ -228,7 +229,7 @@ public final class Menus implements Listener {
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Text.item(fill(player, item.name)));
         List<Component> lore = new ArrayList<>();
-        for (String line : item.lore) lore.add(Text.item(fill(player, line)));
+        for (String line : item.lore) lore.add(Text.item(fill(player, line.replace("%price%", String.valueOf(item.price)))));
         meta.lore(lore);
         if (item.glow) {
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
@@ -291,9 +292,28 @@ public final class Menus implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         Item item = holder.shown.get(event.getSlot());
         if (item == null) return;
+        if (item.price > 0) {
+            buy(player, item);
+            return;
+        }
         run(player, item.any);
         if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) run(player, item.right);
         else run(player, item.left);
+    }
+
+    /**
+     * A priced menu item: buying takes the shop currency and gives a plain copy of the displayed item (no custom
+     * name/lore/enchants carried over). For anything fancier, skip `price` and drive the reward yourself with
+     * [COMMAND]/[CONSOLE] actions instead.
+     */
+    private void buy(Player player, Item item) {
+        if (!dungeon.artifacts.takeShopCurrency(player, item.price)) {
+            dungeon.messages.send(player, "not-enough");
+            return;
+        }
+        var leftover = player.getInventory().addItem(new ItemStack(item.material, item.amount));
+        leftover.values().forEach(rest -> player.getWorld().dropItemNaturally(player.getLocation(), rest));
+        dungeon.messages.send(player, "shop-bought", "price", String.valueOf(item.price));
     }
 
     private void run(Player player, List<String> lines) {

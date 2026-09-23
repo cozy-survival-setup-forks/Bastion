@@ -30,6 +30,7 @@ keep-out: "&cThe dungeon is in use. You cannot be in there."
 
 # ---- funding and joining
 contributed: "&fYou put &a%amount% &ftowards The Buried Throne."
+shop-bought: "&fBought for &a%price% &fshard(s)."
 in-progress: "&cA dungeon is already underway."
 no-economy: "&cThere is no economy on this server, so nothing can be contributed."
 not-enough: "&cYou cannot afford that."

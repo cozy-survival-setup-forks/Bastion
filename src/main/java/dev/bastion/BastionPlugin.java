@@ -75,7 +75,7 @@ public final class BastionPlugin extends JavaPlugin {
         artifacts.load();
         Rooms rooms = new Rooms(this);
         rooms.load();
-        Rewards rewards = new Rewards(this, () -> dungeon.economy, () -> dungeon.settings.coinsCommand);
+        Rewards rewards = new Rewards(this, () -> dungeon.economy, () -> dungeon.settings.coinsCommand, artifacts);
         rewards.load();
         Titles titles = new Titles(tasks);
         Dialogue dialogue = new Dialogue(this, () -> dungeon.players(), tasks, titles);

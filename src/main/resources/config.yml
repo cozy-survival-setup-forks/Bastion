@@ -141,6 +141,14 @@ artifacts:
   consume-on-victory: false
   # How the mini-boss artifacts are handed out: auto (one each to the nearest players) or drop (on the ground)
   room2-mode: auto
+  # The shop currency: not one of the nine, kills and the final boss pay it out (see rewards.tiers' [SHOP] rolls).
+  # Same fields as an item below. Stacks like a normal item, so it shows up in the shop's %dungeon_shop_currency%.
+  special:
+    dungeon_shard:
+      material: PRISMARINE_SHARD
+      display_name: "&bDungeon Shard"
+      lore:
+        - "&7Spend these at the dungeon shop."
   # One section per artifact, like an item in DeluxeMenus: material, display_name, lore, custom_model_data, consume
   items:
     whispering_tome:
@@ -233,6 +241,9 @@ rewards:
       money:
         chance: 10
         commands: ["[MONEY] 2-5"]
+      shop:
+        chance: 15
+        commands: ["[SHOP] 1"]
     room2:
       coins:
         chance: 45
@@ -240,6 +251,9 @@ rewards:
       money:
         chance: 18
         commands: ["[MONEY] 5-12"]
+      shop:
+        chance: 20
+        commands: ["[SHOP] 1-2"]
     guards:
       coins:
         chance: 100
@@ -247,10 +261,13 @@ rewards:
       money:
         chance: 30
         commands: ["[MONEY] 10-25"]
+      shop:
+        chance: 40
+        commands: ["[SHOP] 1-3"]
     miniboss:
       loot:
         chance: 100
-        commands: ["[COINS] 60-90", "[MONEY] 50-80"]
+        commands: ["[COINS] 60-90", "[MONEY] 50-80", "[SHOP] 3-5"]
   # Paid to every player still in the run when the final boss dies.
   victory:
     reward:
@@ -258,3 +275,4 @@ rewards:
       commands:
         - "[MONEY] 5000"
         - "[COINS] 250"
+        - "[SHOP] 10-15"

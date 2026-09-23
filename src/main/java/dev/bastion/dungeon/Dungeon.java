@@ -969,6 +969,7 @@ public final class Dungeon {
             }
             case "last_result" -> store.lastResult() + (store.lastBoss().isEmpty() ? "" : " " + store.lastBoss());
             case "coins" -> player == null ? "0" : String.valueOf(Rewards.coins(player));
+            case "shop_currency" -> player == null ? "0" : String.valueOf(artifacts.shopCurrency(player));
             default -> null;
         };
     }

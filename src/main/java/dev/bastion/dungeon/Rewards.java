@@ -38,13 +38,15 @@ public final class Rewards {
     private final JavaPlugin plugin;
     private final Supplier<Economy> economy;
     private final Supplier<String> coinsCommand;
+    private final Artifacts artifacts;
     private final Map<String, List<Roll>> tiers = new HashMap<>();
     private List<Roll> victory = List.of();
 
-    public Rewards(JavaPlugin plugin, Supplier<Economy> economy, Supplier<String> coinsCommand) {
+    public Rewards(JavaPlugin plugin, Supplier<Economy> economy, Supplier<String> coinsCommand, Artifacts artifacts) {
         this.plugin = plugin;
         this.economy = economy;
         this.coinsCommand = coinsCommand;
+        this.artifacts = artifacts;
     }
 
     public void load() {
@@ -101,6 +103,10 @@ public final class Rewards {
                 case "COINS" -> {
                     long amount = amount(rest, rng);
                     if (amount > 0) giveCoins(player, amount);
+                }
+                case "SHOP" -> {
+                    long amount = amount(rest, rng);
+                    if (amount > 0) artifacts.giveShopCurrency(player, (int) amount);
                 }
                 case "MESSAGE" -> player.sendMessage(dev.bastion.util.Text.component(rest));
                 case "PLAYER" -> Bukkit.dispatchCommand(player, rest);
