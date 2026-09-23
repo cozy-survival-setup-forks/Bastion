@@ -48,7 +48,10 @@ menus:
         glow: true
         lore:
           - "&7Pool money with the whole server."
-          - "&7When the goal is reached the dungeon opens."
+          - "&7When the goal is reached, the dungeon opens for &feveryone&7 - contributing"
+          - "&7doesn't reserve you a spot, it buys the whole server one."
+          - "&7What you get for actually playing: coin and shop-shard drops,"
+          - "&7a shot at the artifacts, and the boss's loot when it falls."
           - ""
           - "%dungeon_goal_bar%"
           - "&f%dungeon_goal_current% &7/ &f%dungeon_goal_total% &8(%dungeon_goal_percent%%)"
