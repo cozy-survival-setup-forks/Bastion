@@ -75,6 +75,7 @@ public final class DungeonListener implements Listener {
         Player player = event.getPlayer();
         Run run = dungeon.run(player.getUniqueId());
         if (run == null || !run.inside()) return;
+        run.lastMovedAt = System.currentTimeMillis();
         if (dungeon.blocksMove(player, from, to)) {
             event.setCancelled(true);
             long now = System.currentTimeMillis();

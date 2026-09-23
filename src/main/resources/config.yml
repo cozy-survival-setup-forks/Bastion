@@ -223,6 +223,14 @@ artifacts:
         - "&7The dungeon shop takes it as payment."
 
 # ---------------------------------------------------------------------------------------------------------------
+afk:
+  # Auto-remove someone who hasn't moved a block in this many minutes, both waiting to enter and inside a run.
+  enabled: true
+  timeout-minutes: 5
+  # How long a player kicked by /dungeon votekick has to wait before they can enter the dungeon again.
+  votekick-cooldown-minutes: 5
+
+# ---------------------------------------------------------------------------------------------------------------
 # Rewards. Each entry is one roll, a chance and a list of commands run for the player, like DeluxeMenus actions:
 #   [MONEY] 5000 or [MONEY] 2-5      paid through Vault
 #   [COINS] 250 or [COINS] 5-15      kept on the player (%dungeon_coins%), or paid with coins-command

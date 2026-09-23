@@ -12,6 +12,7 @@ public final class Run {
     public long lastBlockKey = Long.MIN_VALUE;
     public long nextWarn;
     public long nextChatterAt;
+    public long lastMovedAt = System.currentTimeMillis();
 
     public Run(UUID id, String name) {
         this.id = id;

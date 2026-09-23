@@ -22,6 +22,8 @@ public final class Settings {
     public final String coinsCommand;
     public final int uiTicks;
     public final int hardCapMobs, capPerPlayer;
+    public final boolean afkKickEnabled;
+    public final long afkTimeoutMs, votekickCooldownMs;
 
     public Settings(FileConfiguration c) {
         world = c.getString("world", "Dungeons");
@@ -48,6 +50,9 @@ public final class Settings {
         uiTicks = Math.max(1, c.getInt("ui-update-ticks", 5));
         hardCapMobs = Math.max(1, c.getInt("mobs.hard-cap", 40));
         capPerPlayer = Math.max(0, c.getInt("mobs.max-active-per-player", 2));
+        afkKickEnabled = c.getBoolean("afk.enabled", true);
+        afkTimeoutMs = (long) (Math.max(0, c.getDouble("afk.timeout-minutes", 5)) * 60_000);
+        votekickCooldownMs = (long) (Math.max(0, c.getDouble("afk.votekick-cooldown-minutes", 5)) * 60_000);
     }
 
     private static long seconds(FileConfiguration c, String path, double fallback) {

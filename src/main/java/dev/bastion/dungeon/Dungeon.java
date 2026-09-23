@@ -97,6 +97,8 @@ public final class Dungeon {
     private BukkitTask loop;
     private boolean altarArmed;
     private final java.util.Set<String> placedArtifacts = new java.util.LinkedHashSet<>();
+    private final Map<UUID, java.util.Set<UUID>> votekicks = new LinkedHashMap<>();
+    private final Map<UUID, Long> votekickCooldown = new LinkedHashMap<>();
 
     public Dungeon(JavaPlugin plugin, Settings settings, Messages messages, RegionIndex regions, Points points,
                    Store store, Rooms rooms, TaskBag tasks, Doors doors, Mobs mobs, Waves waves, Bosses bosses,
@@ -264,6 +266,11 @@ public final class Dungeon {
     public String enter(Player player) {
         if (state != DungeonState.OPEN) return "not-open";
         if (isInside(player.getUniqueId())) return "already-in";
+        Long cooldown = votekickCooldown.get(player.getUniqueId());
+        if (cooldown != null) {
+            if (System.currentTimeMillis() < cooldown) return "votekick-cooldown";
+            votekickCooldown.remove(player.getUniqueId());
+        }
         Points.Spot anchor = points.first("anchor");
         Location at = anchor == null ? null : anchor.at();
         if (at == null) {
@@ -389,6 +396,36 @@ public final class Dungeon {
             return;
         }
         if (state.active()) sweepIntruders();
+        if (state.active() && settings.afkKickEnabled) tickAfk(now);
+    }
+
+    /** Waiting or in a run, not moved in too long: sent back out, same as a normal /dungeon leave. */
+    private void tickAfk(long now) {
+        for (Run run : List.copyOf(runs.values())) {
+            if (!run.inside() || now - run.lastMovedAt < settings.afkTimeoutMs) continue;
+            Player player = Bukkit.getPlayer(run.id);
+            if (player == null) continue;
+            messages.send(player, "afk-kicked");
+            leave(player);
+        }
+    }
+
+    /** /dungeon votekick <player>. Returns an error key, or null once the vote is recorded. */
+    public String voteKick(Player voter, Player target) {
+        if (!isInside(voter.getUniqueId()) || !isInside(target.getUniqueId())) return "not-inside";
+        if (voter.getUniqueId().equals(target.getUniqueId())) return "votekick-self";
+        java.util.Set<UUID> voters = votekicks.computeIfAbsent(target.getUniqueId(), k -> new java.util.LinkedHashSet<>());
+        if (!voters.add(voter.getUniqueId())) return "votekick-already";
+        int needed = insideCount() / 2 + 1;
+        if (voters.size() < needed) {
+            for (Player p : players()) messages.send(p, "votekick-progress", "target", target.getName(), "have", String.valueOf(voters.size()), "need", String.valueOf(needed));
+            return null;
+        }
+        votekicks.remove(target.getUniqueId());
+        votekickCooldown.put(target.getUniqueId(), System.currentTimeMillis() + settings.votekickCooldownMs);
+        for (Player p : players()) messages.send(p, "votekick-passed", "target", target.getName());
+        leave(target);
+        return null;
     }
 
     /** The wave number and how many mobs are left, as a bossbar for everyone in the run while a wave is on. */
@@ -462,6 +499,7 @@ public final class Dungeon {
         minibossDead = false;
         altarArmed = false;
         placedArtifacts.clear();
+        votekicks.clear();
         store.runActive(true);
         artifacts.newRun(settings.artifactsRoom1);
         dialogue.resetCooldowns();
@@ -923,6 +961,7 @@ public final class Dungeon {
         minibossDead = false;
         altarArmed = false;
         placedArtifacts.clear();
+        votekicks.clear();
         bossName = "";
         setState(DungeonState.FUNDING);
         Bukkit.broadcast(messages.prefixed("ready"));

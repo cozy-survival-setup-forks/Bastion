@@ -29,7 +29,7 @@ import java.util.Locale;
 /** /dungeon and everything under it. */
 public final class DungeonCommand implements TabExecutor {
 
-    private static final List<String> PLAYER = List.of("menu", "status", "contribute", "enter", "leave");
+    private static final List<String> PLAYER = List.of("menu", "status", "contribute", "enter", "leave", "votekick");
     private static final List<String> ADMIN = List.of("reload", "forcestart", "forceend", "forcereset", "forcefund", "debug",
             "wand", "region", "door", "point", "chest", "paste");
 
@@ -88,6 +88,21 @@ public final class DungeonCommand implements TabExecutor {
                     if (dungeon.run(p.getUniqueId()) == null && dungeon.store.returnOf(p.getUniqueId()) == null) say(sender, "not-in");
                     else dungeon.leave(p);
                 }
+            }
+            case "votekick" -> {
+                Player p = player(sender);
+                if (p == null) break;
+                if (rest.length == 0) {
+                    say(sender, "usage-votekick");
+                    break;
+                }
+                Player target = Bukkit.getPlayer(rest[0]);
+                if (target == null) {
+                    say(sender, "player-not-found");
+                    break;
+                }
+                String error = dungeon.voteKick(p, target);
+                if (error != null) say(sender, error);
             }
             case "reload" -> {
                 if (admin(sender)) {
