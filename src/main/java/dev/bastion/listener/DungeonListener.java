@@ -230,6 +230,24 @@ public final class DungeonListener implements Listener {
         }
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onFramePlace(org.bukkit.event.player.PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof org.bukkit.entity.ItemFrame frame)) return;
+        Player player = event.getPlayer();
+        if (!dungeon.isInside(player.getUniqueId())) return;
+        var hand = player.getInventory().getItemInMainHand();
+        if (dungeon.tryPlaceArtifact(player, frame, hand)) event.setCancelled(true);
+    }
+
+    /** Once an altar frame is holding an artifact, it is part of the ritual now: nothing takes it back out. */
+    @EventHandler(ignoreCancelled = true)
+    public void onFrameDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof org.bukkit.entity.ItemFrame frame)) return;
+        if (dungeon.isAltarFrame(frame.getLocation()) && frame.getItem() != null && !frame.getItem().getType().isAir()) {
+            event.setCancelled(true);
+        }
+    }
+
     // ---------------------------------------------------------------- mobs and bosses
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

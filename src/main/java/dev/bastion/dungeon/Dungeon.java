@@ -95,6 +95,8 @@ public final class Dungeon {
     private String lastHit = "";
     private String bossName = "";
     private BukkitTask loop;
+    private boolean altarArmed;
+    private final java.util.Set<String> placedArtifacts = new java.util.LinkedHashSet<>();
 
     public Dungeon(JavaPlugin plugin, Settings settings, Messages messages, RegionIndex regions, Points points,
                    Store store, Rooms rooms, TaskBag tasks, Doors doors, Mobs mobs, Waves waves, Bosses bosses,
@@ -458,6 +460,8 @@ public final class Dungeon {
         setState(DungeonState.ROOM1_TRAVEL);
         runDeadline = now + settings.runLimitMs;
         minibossDead = false;
+        altarArmed = false;
+        placedArtifacts.clear();
         store.runActive(true);
         artifacts.newRun(settings.artifactsRoom1);
         dialogue.resetCooldowns();
@@ -697,9 +701,51 @@ public final class Dungeon {
         return Bukkit.getWorlds().get(0).getSpawnLocation();
     }
 
-    /** One check, on the total, unlocks the throne room. Not "room 1 done and room 2 done". */
+    /**
+     * One check, on the total, arms the altar. Not "room 1 done and room 2 done". Room 3 no longer unlocks the
+     * instant every artifact is picked up: players have to walk them over and place them in the altar frames
+     * (see {@link #tryPlaceArtifact}) marked with {@code /dungeon point add altar}, one per artifact.
+     */
     private void checkThroneUnlock() {
-        if (state == DungeonState.ROOM2_COMBAT && minibossDead && artifacts.complete()) unlockRoom(3);
+        if (altarArmed || state != DungeonState.ROOM2_COMBAT || !minibossDead || !artifacts.complete()) return;
+        altarArmed = true;
+        announce("announce-altar-ready", "count", String.valueOf(artifacts.total()));
+        fx.sound(Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1f);
+    }
+
+    /**
+     * A player right-clicked an item frame with an artifact in hand. Returns true (and the caller should cancel
+     * the interaction) if it was accepted into the altar. ponytail: a frame counts as an altar slot by distance to
+     * a marked "altar" point rather than a stored entity id, so re-placing frames after a world reset needs no code.
+     */
+    public boolean tryPlaceArtifact(Player player, org.bukkit.entity.ItemFrame frame, org.bukkit.inventory.ItemStack hand) {
+        if (!altarArmed || placedArtifacts.size() >= artifacts.total()) return false;
+        if (!isAltarFrame(frame.getLocation())) return false;
+        if (frame.getItem() != null && !frame.getItem().getType().isAir()) return false;
+        String id = Artifacts.idOf(hand);
+        if (id == null || placedArtifacts.contains(id)) return false;
+        org.bukkit.inventory.ItemStack one = hand.clone();
+        one.setAmount(1);
+        frame.setItem(one);
+        hand.setAmount(hand.getAmount() - 1);
+        placedArtifacts.add(id);
+        if (placedArtifacts.size() >= artifacts.total()) {
+            titles.type(players(), messages.raw("altar-complete-title"), "#FFD700", messages.raw("altar-complete-subtitle"), "★");
+            fx.sound(Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            unlockRoom(3);
+        } else {
+            for (Player p : players()) p.sendActionBar(messages.text("altar-progress", "placed", String.valueOf(placedArtifacts.size()), "total", String.valueOf(artifacts.total())));
+        }
+        return true;
+    }
+
+    /** True once every altar slot is filled: an already-placed artifact can no longer be taken back out. */
+    public boolean isAltarFrame(Location at) {
+        for (Points.Spot spot : points.get("altar")) {
+            Location p = spot.at();
+            if (p != null && p.getWorld().equals(at.getWorld()) && p.distanceSquared(at) < 4) return true;
+        }
+        return false;
     }
 
     // ---------------------------------------------------------------- room 3: the throne
@@ -875,6 +921,8 @@ public final class Dungeon {
         store.clearFunding();
         store.runActive(false);
         minibossDead = false;
+        altarArmed = false;
+        placedArtifacts.clear();
         bossName = "";
         setState(DungeonState.FUNDING);
         Bukkit.broadcast(messages.prefixed("ready"));
