@@ -420,6 +420,7 @@ public final class Mobs {
             }
             State state = e.getValue();
             act(now, entity, state);
+            if (state.trait != null && entity instanceof LivingEntity living) tellTrait(living, state.trait);
             if (state.trait == Trait.HURL && now >= state.nextTraitAt && entity instanceof Mob mob
                     && mob.getTarget() instanceof Player target && target.getWorld() == mob.getWorld()
                     && mob.getLocation().distanceSquared(target.getLocation()) <= 196 && mob.hasLineOfSight(target)) {
@@ -430,6 +431,28 @@ public final class Mobs {
             }
         }
         after.forEach(Runnable::run);
+    }
+
+    /**
+     * A faint, colour-coded aura so a trait can be read before it fires, not after. Same colour everywhere a trait
+     * appears, so "that's the frost one" becomes something a player can learn.
+     */
+    private void tellTrait(LivingEntity entity, Trait trait) {
+        org.bukkit.Color color = switch (trait) {
+            case SHOVE -> org.bukkit.Color.fromRGB(0xFF8C00);
+            case FLICKER -> org.bukkit.Color.fromRGB(0xB0B0B0);
+            case HURL -> org.bukkit.Color.fromRGB(0xFFFFFF);
+            case WAR_CRY -> org.bukkit.Color.fromRGB(0xD32F2F);
+            case LEAP -> org.bukkit.Color.fromRGB(0x7CFC00);
+            case BLINK -> org.bukkit.Color.fromRGB(0x9C27B0);
+            case WITHER_TOUCH -> org.bukkit.Color.fromRGB(0x2E2E2E);
+            case HUNGER_TOUCH -> org.bukkit.Color.fromRGB(0x8B5A2B);
+            case FROST_TOUCH -> org.bukkit.Color.fromRGB(0x40C4FF);
+            case HEAL_PULSE -> org.bukkit.Color.fromRGB(0x4CAF50);
+            case BLAST -> org.bukkit.Color.fromRGB(0xFFC107);
+        };
+        fx.particle(Particle.DUST, entity.getLocation().add(0, entity.getHeight() + 0.15, 0), 2, 0.2, 0.05, 0.2, 0,
+                new Particle.DustOptions(color, 1f));
     }
 
     /** The traits that act on their own: leaping, blinking behind a target, and healing the others. */
