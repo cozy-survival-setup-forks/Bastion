@@ -35,6 +35,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
@@ -81,6 +82,21 @@ public final class DungeonListener implements Listener {
                 run.nextWarn = now + 2500;
                 player.sendActionBar(dungeon.messages.text("locked"));
             }
+        }
+    }
+
+    // ender pearls and chorus fruit fire this instead of PlayerMoveEvent, so a sealed door needs both checked
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent event) {
+        if (!dungeon.state().active()) return;
+        Location to = event.getTo();
+        if (to == null) return;
+        Player player = event.getPlayer();
+        Run run = dungeon.run(player.getUniqueId());
+        if (run == null || !run.inside()) return;
+        if (dungeon.blocksMove(player, event.getFrom(), to)) {
+            event.setCancelled(true);
+            player.sendActionBar(dungeon.messages.text("locked"));
         }
     }
 
