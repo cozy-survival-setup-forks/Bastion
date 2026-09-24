@@ -66,7 +66,8 @@ public final class VaultEconomy implements Rewards.Economy {
     @Override
     public String format(double amount) {
         try {
-            return (String) format.invoke(provider, amount);
+            // Some economies return legacy colour codes (section signs). They would break MiniMessage text.
+            return ((String) format.invoke(provider, amount)).replaceAll("(?i)\u00a7[0-9a-fk-orx]", "");
         } catch (ReflectiveOperationException e) {
             return String.format(Locale.ROOT, "%.2f", amount);
         }
