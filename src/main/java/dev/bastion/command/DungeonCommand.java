@@ -548,6 +548,9 @@ public final class DungeonCommand implements TabExecutor {
         if (args.length == 1) {
             options.addAll(PLAYER);
             if (isAdmin) options.addAll(ADMIN);
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("votekick")) {
+            // this one is for every player, not just admins - the whole point of votekick is that anyone can start one
+            for (Player p : Bukkit.getOnlinePlayers()) options.add(p.getName());
         } else if (args.length == 2 && isAdmin) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "region" -> options.addAll(List.of("save", "cuboid", "polygon", "list", "show", "delete", "setclean"));
