@@ -12,13 +12,13 @@ code.
 
 | Download | What it is |
 | --- | --- |
-| `Bastion-1.3.0.jar` | The plugin |
+| `Bastion-1.4.0.jar` | The plugin |
 | `Dungeons-world.zip` | A ready world called `Dungeons` with the castle pasted in, gates built, and the game rules set. Import it with the Worlds plugin |
 | `Bastion-default-setup.zip` | `setup.yml` (regions, doors and points) and the `schematics` folder for that world: `dungeon_clean.schem` (the snapshot every run resets to) and `Dungeons.schem` (the castle with the gates, for pasting elsewhere) |
 
 ## Setting it up
 
-1. Put `Bastion-1.3.0.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
+1. Put `Bastion-1.4.0.jar` in `plugins`. Vault and an economy plugin are needed for contributions, PlaceholderAPI is optional.
 2. Unzip `Dungeons-world.zip` into the server folder and import `Dungeons` with the Worlds plugin.
 3. Unzip `Bastion-default-setup.zip` into `plugins/Bastion` and restart.
 4. `/dungeon` opens the menu. `/dungeon forcestart` opens the dungeon at once, for a test.
@@ -142,9 +142,15 @@ On Paper 1.21.11 with two players in a run, a full playthrough from funding to t
 
 - FAWE. The restore is built in, so there is one dependency less.
 - ProtocolLib and packet gates. Gates are real blocks, which works the same for everyone and survives a relog.
-- A custom mob AI. Mobs are vanilla with a kit and one small power (a shove, a leap, a blink, a wither or hunger touch, a heal pulse, a blast on death and so on).
+- Custom mob pathing or brains. Mobs are vanilla with a kit and one small power (a shove, a leap, a blink, a wither or hunger touch, a heal pulse, a blast on death and so on).
 - Sign text and container items in the snapshot. Restoring puts blocks back and empties containers, which is what a
   run needs.
+
+## Telemetry
+
+On startup Bastion sends a small anonymous beacon (plugin name/version, server software/version, online/max player
+counts, and a random ID with no player data) so we know which versions are in use. Turn it off with
+`metrics.enabled: false` in `config.yml`.
 
 ## Building
 
@@ -152,4 +158,4 @@ On Paper 1.21.11 with two players in a run, a full playthrough from funding to t
 ./gradlew build
 ```
 
-The jar is in `build/libs`. Licensed under MIT.
+The jar is in `build/libs`. See `LICENSE`: free to run on your own servers, not for redistribution or resale.
