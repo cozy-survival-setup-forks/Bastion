@@ -46,6 +46,17 @@ public final class BastionPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        try {
+            enableInner();
+        } catch (RuntimeException e) {
+            getLogger().log(java.util.logging.Level.SEVERE, "Bastion failed to start and will be disabled. This is "
+                    + "usually a bad or outdated config file - check the config.yml/messages.yml/mobs.yml warnings "
+                    + "above this, or delete the whole plugins/Bastion folder to regenerate defaults.", e);
+            getServer().getPluginManager().disablePlugin(this);
+        }
+    }
+
+    private void enableInner() {
         saveDefaultConfig();
         new File(getDataFolder(), "schematics").mkdirs();
         if (getConfig().getConfigurationSection("rooms") == null) {
