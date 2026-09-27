@@ -32,6 +32,8 @@ import java.io.File;
 /**
  * Bastion: a crowdfunded, instanced dungeon. Money pools to a goal, a join window opens, then a state machine runs
  * three rooms and a boss. Everything about the dungeon (rooms, mobs, bosses, lines, rewards) is in yml files.
+ *
+ * @author Groovified, Blockie Studios
  */
 public final class BastionPlugin extends JavaPlugin {
 

@@ -3,6 +3,8 @@ version: '${version}'
 main: dev.bastion.BastionPlugin
 api-version: '1.21'
 description: A crowdfunded, instanced dungeon for the whole server
+author: Groovified
+website: https://discord.gg/blockie
 load: POSTWORLD
 softdepend:
   - Vault
