@@ -7,6 +7,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.lang.reflect.Method;
 import java.util.Locale;
+import java.util.logging.Level;
 
 /** Vault's economy, reached by reflection so the plugin has no compile-time dependency on it. */
 public final class VaultEconomy implements Rewards.Economy {
@@ -32,6 +33,8 @@ public final class VaultEconomy implements Rewards.Economy {
             RegisteredServiceProvider<?> registration = Bukkit.getServicesManager().getRegistration(economy);
             return registration == null ? null : new VaultEconomy(registration.getProvider(), economy, response);
         } catch (ReflectiveOperationException e) {
+            // otherwise a Vault API mismatch shows up only as the unrelated, misleading "no economy found"
+            Bukkit.getLogger().log(Level.WARNING, "[Bastion] Could not hook Vault's economy API", e);
             return null;
         }
     }
@@ -41,6 +44,7 @@ public final class VaultEconomy implements Rewards.Economy {
         try {
             return (boolean) has.invoke(provider, player, amount);
         } catch (ReflectiveOperationException e) {
+            Bukkit.getLogger().log(Level.WARNING, "[Bastion] Vault balance check failed for " + player.getUniqueId(), e);
             return false;
         }
     }
@@ -50,6 +54,7 @@ public final class VaultEconomy implements Rewards.Economy {
         try {
             return (boolean) success.invoke(withdraw.invoke(provider, player, amount));
         } catch (ReflectiveOperationException e) {
+            Bukkit.getLogger().log(Level.WARNING, "[Bastion] Vault withdrawal failed for " + player.getUniqueId(), e);
             return false;
         }
     }
@@ -57,9 +62,12 @@ public final class VaultEconomy implements Rewards.Economy {
     @Override
     public void deposit(OfflinePlayer player, double amount) {
         try {
-            deposit.invoke(provider, player, amount);
-        } catch (ReflectiveOperationException ignored) {
-            // nothing to do: the money stays where it was
+            Object response = deposit.invoke(provider, player, amount);
+            if (!(boolean) success.invoke(response)) {
+                Bukkit.getLogger().warning("[Bastion] Deposit of " + amount + " to " + player.getUniqueId() + " failed");
+            }
+        } catch (ReflectiveOperationException e) {
+            Bukkit.getLogger().log(Level.WARNING, "[Bastion] Deposit of " + amount + " to " + player.getUniqueId() + " failed", e);
         }
     }
 

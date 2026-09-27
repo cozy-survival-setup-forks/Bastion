@@ -164,7 +164,9 @@ public final class DungeonCommand implements TabExecutor {
 
     private static double number(String text, double fallback) {
         try {
-            return Double.parseDouble(text);
+            // Double.parseDouble("NaN"/"Infinity") succeeds without throwing, so it has to be checked separately
+            double value = Double.parseDouble(text);
+            return Double.isFinite(value) ? value : fallback;
         } catch (NumberFormatException e) {
             return fallback;
         }

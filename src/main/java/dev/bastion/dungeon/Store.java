@@ -12,6 +12,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -65,8 +67,8 @@ public final class Store {
             for (String k : c.getKeys(false)) {
                 try {
                     paid.put(UUID.fromString(k), c.getDouble(k));
-                } catch (IllegalArgumentException ignored) {
-                    // a hand-edited key that is not an id
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("data.yml: skipping funding.paid." + k + ", not a valid player id");
                 }
             }
         }
@@ -79,8 +81,8 @@ public final class Store {
                     returns.put(UUID.fromString(k), new Return(s.getString("world"), s.getDouble("x"), s.getDouble("y"),
                             s.getDouble("z"), (float) s.getDouble("yaw"), (float) s.getDouble("pitch"),
                             GameMode.valueOf(s.getString("mode", "SURVIVAL"))));
-                } catch (IllegalArgumentException ignored) {
-                    // a hand-edited entry
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("data.yml: skipping returns." + k + ", " + e.getMessage());
                 }
             }
         }
@@ -179,7 +181,11 @@ public final class Store {
         // one writer thread, so two quick saves never land out of order
         writer.execute(() -> {
             try {
-                Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
+                // a crash mid-write must never leave a truncated data.yml behind: write to a temp file, then
+                // atomically replace the real one
+                Path tmp = file.toPath().resolveSibling(file.getName() + ".tmp");
+                Files.writeString(tmp, text, StandardCharsets.UTF_8);
+                Files.move(tmp, file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } catch (IOException e) {
                 plugin.getLogger().warning("Could not save data.yml: " + e.getMessage());
             }
@@ -190,7 +196,9 @@ public final class Store {
     public void close() {
         writer.shutdown();
         try {
-            writer.awaitTermination(5, TimeUnit.SECONDS);
+            if (!writer.awaitTermination(5, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("data.yml writes did not finish before shutdown");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

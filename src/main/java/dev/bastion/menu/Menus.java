@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A small config-driven menu framework in the style of DeluxeMenus. menus.yml defines menus as a grid of items; an
@@ -80,7 +81,9 @@ public final class Menus implements Listener {
     private final Map<String, Menu> menus = new LinkedHashMap<>();
     private final Map<String, Action> actions = new HashMap<>();
     private final Set<UUID> viewers = new HashSet<>();
-    private final Set<UUID> typingAmount = new HashSet<>();
+    // read and removed from the async chat listener (takeAmount), added to on the main thread: a plain HashSet
+    // mutated from two threads at once can corrupt its internal structure
+    private final Set<UUID> typingAmount = ConcurrentHashMap.newKeySet();
     private BukkitTask refresher;
 
     public Menus(JavaPlugin plugin, Dungeon dungeon) {
@@ -296,9 +299,14 @@ public final class Menus implements Listener {
             buy(player, item);
             return;
         }
-        run(player, item.any);
-        if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) run(player, item.right);
-        else run(player, item.left);
+        // deferred one tick: [ENTER]/[LEAVE] call Dungeon.enter()/sendBack(), which close the player's inventory,
+        // and the Bukkit API forbids closing an inventory from inside its own click event
+        List<String> any = item.any;
+        List<String> sided = (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) ? item.right : item.left;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            run(player, any);
+            run(player, sided);
+        });
     }
 
     /**
@@ -353,6 +361,12 @@ public final class Menus implements Listener {
             }
         });
         return true;
+    }
+
+    /** A player left: an amount prompt they never answered must not eat their next message after they rejoin. */
+    public void forget(UUID id) {
+        typingAmount.remove(id);
+        viewers.remove(id);
     }
 
     public void closeAll() {

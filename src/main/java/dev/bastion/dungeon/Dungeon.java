@@ -83,13 +83,16 @@ public final class Dungeon {
     public Rewards.Economy economy;
 
     // ---- state
-    private DungeonState state = DungeonState.FUNDING;
-    private final Map<UUID, Run> runs = new LinkedHashMap<>();
+    // both read from the async chat listener (state().active(), isInside()) while only ever written on the main
+    // thread, so a plain field/map would let the async side see a half-updated value or corrupt a resizing map
+    private volatile DungeonState state = DungeonState.FUNDING;
+    private final Map<UUID, Run> runs = Collections.synchronizedMap(new LinkedHashMap<>());
     private List<Player> cache = List.of();
     private boolean cacheDirty = true;
     private long returnDeadline;
     private long joinDeadline, lockDeadline, countdownDeadline, runDeadline, celebrationDeadline;
     private long nextSecond, nextCompass, nextFirework;
+    private long nextTickErrorLog;
     private int shownCountdown;
     private boolean minibossDead;
     private String lastHit = "";
@@ -126,11 +129,16 @@ public final class Dungeon {
 
     public void start() {
         loop = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, settings.uiTicks, settings.uiTicks);
-        // a run that was cut off by a crash or restart leaves the world dirty and players stranded
+        // a run that was cut off by a crash, restart or /reload leaves the world dirty and players stranded
         if (store.runActive() || store.hasReturns()) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 plugin.getLogger().warning("A dungeon run was cut off. Putting everything back.");
                 beginReset();
+                // onJoin only catches players who join from here on; a /reload (not a restart) leaves players who
+                // are already online with nobody to send them home, since the fresh runs map above is empty
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    if (store.returnOf(p.getUniqueId()) != null && !isInside(p.getUniqueId())) sendBack(p);
+                }
             }, 40L);
         }
     }
@@ -142,6 +150,12 @@ public final class Dungeon {
         mobs.killAll();
         bosses.stopAll();
         doors.stop();
+        // otherwise the wave bossbar stays on screen for anyone watching it after a disable or /reload
+        for (java.util.UUID id : onWaveBar) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) p.hideBossBar(waveBar);
+        }
+        onWaveBar.clear();
     }
 
     // ---------------------------------------------------------------- queries
@@ -221,11 +235,14 @@ public final class Dungeon {
 
     /** Adds money towards the goal. Returns the message key of what went wrong, or null. */
     public String contribute(Player player, double amount) {
+        // NaN/Infinity pass every "<= 0" check below (those comparisons are always false), so they have to be
+        // rejected up front - and a floor to the cent closes off farming a contribution an economy rounds to free.
+        if (!Double.isFinite(amount)) return "bad-amount";
         if (state != DungeonState.FUNDING) return "in-progress";
         if (economy == null) return "no-economy";
         double left = settings.goal - store.current();
-        double pay = Math.min(amount, left);
-        if (pay <= 0) return "in-progress";
+        double pay = Math.floor(Math.min(amount, left) * 100) / 100.0;
+        if (pay < 0.01) return "in-progress";
         if (!economy.has(player, pay)) return "not-enough";
         if (!economy.withdraw(player, pay)) return "not-enough";
         store.addFunds(player.getUniqueId(), pay);
@@ -308,6 +325,9 @@ public final class Dungeon {
         // the chunk is loaded before the player arrives, so they cannot fall through unloaded ground
         target.getWorld().getChunkAtAsync(target).thenAccept(chunk -> Bukkit.getScheduler().runTask(plugin, () ->
                 player.teleportAsync(target).thenAccept(ok -> Bukkit.getScheduler().runTask(plugin, () -> {
+                    // a failed teleport (player logged off mid-flight, or it was cancelled) must not forget the
+                    // return record, or they are stranded with no way to be sent home again
+                    if (!ok || !player.isOnline()) return;
                     player.setGameMode(mode);
                     store.forget(player.getUniqueId());
                 }))));
@@ -357,7 +377,16 @@ public final class Dungeon {
 
     private void tick() {
         long started = Slow.start();
-        tickInner();
+        try {
+            tickInner();
+        } catch (RuntimeException e) {
+            // an uncaught exception here would otherwise print a full stack trace every tick forever
+            long now = System.currentTimeMillis();
+            if (now >= nextTickErrorLog) {
+                nextTickErrorLog = now + 10_000;
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "The dungeon tick (" + state + ") threw an exception", e);
+            }
+        }
         Slow.check(plugin, "the dungeon tick (" + state + ")", started);
     }
 
@@ -395,7 +424,7 @@ public final class Dungeon {
             fail("time");
             return;
         }
-        if (state.active()) sweepIntruders();
+        sweepIntruders();
         if (state.active() && settings.afkKickEnabled) tickAfk(now);
     }
 
@@ -761,7 +790,8 @@ public final class Dungeon {
         if (!isAltarFrame(frame.getLocation())) return false;
         if (frame.getItem() != null && !frame.getItem().getType().isAir()) return false;
         String id = Artifacts.idOf(hand);
-        if (id == null || placedArtifacts.contains(id)) return false;
+        // an artifact kept from a previous run must not complete this one's altar
+        if (id == null || placedArtifacts.contains(id) || !artifacts.ofThisRun(hand)) return false;
         org.bukkit.inventory.ItemStack one = hand.clone();
         one.setAmount(1);
         frame.setItem(one);
@@ -914,11 +944,13 @@ public final class Dungeon {
         Slow.check(plugin, "reset: stopping mobs and tasks", t);
         t = Slow.start();
         for (Run run : runs.values()) {
+            // the run is over for everybody in it: this also stops blocksMove from cancelling the trip home below
+            run.left = true;
             Player p = Bukkit.getPlayer(run.id);
-            if (p != null) {
-                artifacts.consume(p, true);
-                sendBack(p);
-            }
+            if (p == null) continue;
+            artifacts.consume(p, true);
+            // only actually send home players who are not already there (left/died earlier already got sent back)
+            if (store.returnOf(run.id) != null) sendBack(p);
         }
         cacheDirty = true;
         Slow.check(plugin, "reset: sending players home", t);
@@ -945,11 +977,28 @@ public final class Dungeon {
                 });
                 return;
             }
-            Bukkit.getScheduler().runTask(plugin, () -> reset.restore(snapshot, world, true, result -> {
-                plugin.getLogger().info("Dungeon restored: " + result.changed() + " blocks changed in " + result.millis() + " ms over " + result.chunks() + " chunks.");
-                finishReset();
-            }, null));
+            Bukkit.getScheduler().runTask(plugin, () -> restoreWhenFree(snapshot, world));
         });
+    }
+
+    /**
+     * An admin's setclean/paste can be mid-run when a reset starts; {@link WorldReset#restore} throws if it is
+     * already busy, which would otherwise leave the dungeon stuck in RESETTING until a restart. Wait for it to
+     * free up instead.
+     */
+    private void restoreWhenFree(Snapshot snapshot, World world) {
+        if (reset.busy()) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> restoreWhenFree(snapshot, world), 40L);
+            return;
+        }
+        reset.restore(snapshot, world, true, result -> {
+            if (result.changed() < 0) {
+                plugin.getLogger().warning("Dungeon world restore failed; the world may be left dirty, check the warning above.");
+            } else {
+                plugin.getLogger().info("Dungeon restored: " + result.changed() + " blocks changed in " + result.millis() + " ms over " + result.chunks() + " chunks.");
+            }
+            finishReset();
+        }, null);
     }
 
     private void finishReset() {
@@ -961,20 +1010,45 @@ public final class Dungeon {
         minibossDead = false;
         altarArmed = false;
         placedArtifacts.clear();
+        clearAltarFrames();
         votekicks.clear();
         bossName = "";
         setState(DungeonState.FUNDING);
         Bukkit.broadcast(messages.prefixed("ready"));
     }
 
-    /** Players who are not in the run must not wander into it while it is going on. */
+    /**
+     * Item frames are entities, not blocks, so restoring the world's blocks never empties them: without this, an
+     * altar frame that held last run's artifact starts the next run already "full" and rejects the real one.
+     */
+    private void clearAltarFrames() {
+        for (Points.Spot spot : points.get("altar")) {
+            Location at = spot.at();
+            if (at == null) continue;
+            for (org.bukkit.entity.ItemFrame frame : at.getWorld().getNearbyEntitiesByType(org.bukkit.entity.ItemFrame.class, at, 2)) {
+                frame.setItem(null, false);
+            }
+        }
+    }
+
+    /**
+     * Players who are not currently in the run must not be standing in it, in any state - including a participant
+     * who left, was eliminated, or slipped through some other way while the run map still remembers them. Run
+     * every tick regardless of state, as a self-healing check rather than something that has to be gated exactly
+     * right at every call site.
+     */
     private void sweepIntruders() {
         World world = Bukkit.getWorld(settings.world);
         if (world == null) return;
         for (Player p : world.getPlayers()) {
-            if (runs.containsKey(p.getUniqueId()) || p.hasPermission("dungeon.bypass.entry")) continue;
+            if (p.hasPermission("dungeon.bypass.entry")) continue;
+            Run run = runs.get(p.getUniqueId());
+            if (run != null && run.inside()) continue;
             Location l = p.getLocation();
-            if (regions.inType(world.getName(), l.getX(), l.getY(), l.getZ(), RegionType.DUNGEON)) {
+            if (!regions.inType(world.getName(), l.getX(), l.getY(), l.getZ(), RegionType.DUNGEON)) continue;
+            if (store.returnOf(p.getUniqueId()) != null) {
+                sendBack(p);
+            } else {
                 p.teleportAsync(Bukkit.getWorlds().get(0).getSpawnLocation());
                 messages.send(p, "keep-out");
             }

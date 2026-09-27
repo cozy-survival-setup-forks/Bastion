@@ -5,6 +5,7 @@ import dev.bastion.world.Points;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -21,6 +22,7 @@ import java.util.function.IntConsumer;
  */
 public final class Waves {
 
+    private final Plugin plugin;
     private final Mobs mobs;
     private final Points points;
 
@@ -39,8 +41,10 @@ public final class Waves {
     private BiConsumer<LivingEntity, Player> onKill;
     private double extraPerPlayer;
     private int players = 1;
+    private boolean warnedNoSpot;
 
-    public Waves(Mobs mobs, Points points) {
+    public Waves(Plugin plugin, Mobs mobs, Points points) {
+        this.plugin = plugin;
         this.mobs = mobs;
         this.points = points;
     }
@@ -68,6 +72,7 @@ public final class Waves {
         this.wave = 0;
         this.running = true;
         this.resting = true;
+        this.warnedNoSpot = false;
         this.nextWaveAt = System.currentTimeMillis() + firstDelayMs;
         if (waves.isEmpty()) finish();
     }
@@ -139,15 +144,25 @@ public final class Waves {
 
     private void spawnOne() {
         String id = queue.poll();
-        // a spot that is not in or over water, out of a few tries
+        // a spot that is not in or over water, out of a few tries; a wet one is used rather than losing the mob
         Location at = null;
+        Location fallback = null;
         for (int tries = 0; tries < 12 && at == null; tries++) {
             Points.Spot spot = points.random(spawnGroup);
             Location candidate = spot == null ? null : spot.at();
-            if (candidate != null && Mobs.isDry(candidate)) at = candidate;
+            if (candidate == null) continue;
+            if (fallback == null) fallback = candidate;
+            if (Mobs.isDry(candidate)) at = candidate;
         }
+        if (at == null) at = fallback;
         if (at == null) {
-            // nowhere to spawn: skip it rather than hang the wave forever
+            // no spawn point in the group at all: put the mob back and retry next tick instead of dropping it,
+            // which would let a wave (and the room behind it) be "cleared" without anything having to be killed
+            queue.addFirst(id);
+            if (!warnedNoSpot) {
+                warnedNoSpot = true;
+                plugin.getLogger().warning("No spawn point in the '" + spawnGroup + "' point group; a wave cannot spawn its mobs");
+            }
             return;
         }
         UUID[] self = new UUID[1];

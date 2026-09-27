@@ -23,11 +23,13 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -128,6 +130,7 @@ public final class DungeonListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         dungeon.partyChanged();
         wand.forget(event.getPlayer().getUniqueId());
+        menus.forget(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -141,6 +144,8 @@ public final class DungeonListener implements Listener {
                 if (player.isOnline() && !dungeon.isInside(id)) dungeon.sendBack(player);
             }, 20L);
         }
+        // an artifact kept from a run that ended (or that they left) while offline is of no use now
+        if (!dungeon.isInside(id)) dungeon.artifacts.consume(player, true);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -182,13 +187,13 @@ public final class DungeonListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        stopBuilding(event.getPlayer(), event);
+        stopBuilding(event.getPlayer(), event, event.getBlock());
         if (!event.isCancelled()) autosave(event.getPlayer(), event.getBlock());
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        stopBuilding(event.getPlayer(), event);
+        stopBuilding(event.getPlayer(), event, event.getBlock());
         if (!event.isCancelled()) autosave(event.getPlayer(), event.getBlock());
     }
 
@@ -203,12 +208,26 @@ public final class DungeonListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucket(PlayerBucketEmptyEvent event) {
-        stopBuilding(event.getPlayer(), event);
+        stopBuilding(event.getPlayer(), event, event.getBlock());
     }
 
-    /** Until the waiting is over, everybody in the spawn hall keeps their hands to themselves. */
-    private void stopBuilding(Player player, org.bukkit.event.Cancellable event) {
-        if (!dungeon.waiting() || !dungeon.isInside(player.getUniqueId())) return;
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBucketFill(PlayerBucketFillEvent event) {
+        stopBuilding(event.getPlayer(), event, event.getBlock());
+    }
+
+    /**
+     * Nothing is built, broken or scooped inside the dungeon region for the whole run, not just while waiting -
+     * otherwise a room's build can be quarried, or blocked off from resetting, the moment travel into it starts.
+     * A run participant is also kept from building anywhere while still waiting in the spawn hall. An admin editing
+     * the layout during FUNDING is let through so {@link #autosave} can follow what they do.
+     */
+    private void stopBuilding(Player player, org.bukkit.event.Cancellable event, org.bukkit.block.Block block) {
+        boolean adminEdit = dungeon.state() == dev.bastion.dungeon.DungeonState.FUNDING && player.hasPermission("dungeon.admin");
+        if (adminEdit) return;
+        boolean inDungeon = dungeon.regions.inType(block.getWorld().getName(), block.getX(), block.getY(), block.getZ(), dev.bastion.region.RegionType.DUNGEON);
+        boolean waitingParticipant = dungeon.waiting() && dungeon.isInside(player.getUniqueId());
+        if (!inDungeon && !waitingParticipant) return;
         event.setCancelled(true);
         player.sendActionBar(dungeon.messages.text("no-build"));
     }
@@ -243,6 +262,15 @@ public final class DungeonListener implements Listener {
     /** Once an altar frame is holding an artifact, it is part of the ritual now: nothing takes it back out. */
     @EventHandler(ignoreCancelled = true)
     public void onFrameDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof org.bukkit.entity.ItemFrame frame)) return;
+        if (dungeon.isAltarFrame(frame.getLocation()) && frame.getItem() != null && !frame.getItem().getType().isAir()) {
+            event.setCancelled(true);
+        }
+    }
+
+    /** Same as {@link #onFrameDamage}, for the frame breaking outright - by hand or its support block going. */
+    @EventHandler(ignoreCancelled = true)
+    public void onFrameBreak(HangingBreakEvent event) {
         if (!(event.getEntity() instanceof org.bukkit.entity.ItemFrame frame)) return;
         if (dungeon.isAltarFrame(frame.getLocation()) && frame.getItem() != null && !frame.getItem().getType().isAir()) {
             event.setCancelled(true);

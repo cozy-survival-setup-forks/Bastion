@@ -140,9 +140,13 @@ public final class SchemFile {
     // ---------------------------------------------------------------- writing
 
     public static void write(Path file, Snapshot snapshot) throws IOException {
-        try (OutputStream out = new GZIPOutputStream(Files.newOutputStream(file), 1 << 16)) {
+        // a crash or a concurrent read mid-write must never see a truncated schematic: write to a temp file next
+        // to it, then atomically replace the real one
+        Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+        try (OutputStream out = new GZIPOutputStream(Files.newOutputStream(tmp), 1 << 16)) {
             write(out, snapshot);
         }
+        Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
     }
 
     public static void write(OutputStream gzipped, Snapshot s) throws IOException {

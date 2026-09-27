@@ -277,7 +277,11 @@ public final class Artifacts {
         List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
         for (String line : t.lore) lore.add(Text.item(Text.fill(line, values)));
         meta.lore(lore);
-        if (t.model > 0) meta.setCustomModelData(t.model);
+        if (t.model > 0) {
+            var component = meta.getCustomModelDataComponent();
+            component.setFloats(List.of((float) t.model));
+            meta.setCustomModelDataComponent(component);
+        }
         meta.getPersistentDataContainer().set(ID, PersistentDataType.STRING, t.id);
         meta.getPersistentDataContainer().set(RUN, PersistentDataType.LONG, runToken);
         item.setItemMeta(meta);
@@ -293,6 +297,10 @@ public final class Artifacts {
         if (special == null) return null;
         ItemStack item = make(special, null, 0);
         ItemMeta meta = item.getItemMeta();
+        // it is shop currency, not one of the nine: strip the artifact/run tags make() just added so consume()
+        // does not delete it at reset and the altar does not accept it as one of the nine
+        meta.getPersistentDataContainer().remove(ID);
+        meta.getPersistentDataContainer().remove(RUN);
         meta.getPersistentDataContainer().set(SHOP, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
         item.setAmount(Math.max(1, amount));
@@ -334,7 +342,9 @@ public final class Artifacts {
         return true;
     }
 
-    private boolean ofThisRun(ItemStack item) {
+    /** True if this artifact was made for the run in progress, not kept from an earlier one. */
+    public boolean ofThisRun(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
         Long token = item.getItemMeta().getPersistentDataContainer().get(RUN, PersistentDataType.LONG);
         return token != null && token == runToken;
     }
@@ -344,18 +354,65 @@ public final class Artifacts {
         return item.getItemMeta().getPersistentDataContainer().get(ID, PersistentDataType.STRING);
     }
 
+    private boolean matches(ItemStack item, boolean all) {
+        String id = idOf(item);
+        if (id == null) return false;
+        Template t = templates.get(id);
+        return all || (t != null && t.consume);
+    }
+
+    /** An artifact hidden inside a bundle or a shulker box does not dodge {@link #consume}. */
+    private int stripNested(ItemStack item, boolean all) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return 0;
+        int removed = 0;
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof org.bukkit.inventory.meta.BundleMeta bundle && bundle.hasItems()) {
+            List<ItemStack> kept = new ArrayList<>();
+            for (ItemStack inner : bundle.getItems()) {
+                if (matches(inner, all)) removed++;
+                else kept.add(inner);
+            }
+            if (removed > 0) {
+                bundle.setItems(kept);
+                item.setItemMeta(bundle);
+            }
+        } else if (meta instanceof org.bukkit.inventory.meta.BlockStateMeta bsm && bsm.hasBlockState()
+                && bsm.getBlockState() instanceof Container container) {
+            for (int i = 0; i < container.getInventory().getSize(); i++) {
+                if (matches(container.getInventory().getItem(i), all)) {
+                    container.getInventory().setItem(i, null);
+                    removed++;
+                }
+            }
+            if (removed > 0) {
+                bsm.setBlockState(container);
+                item.setItemMeta(bsm);
+            }
+        }
+        return removed;
+    }
+
     /** Takes the artifacts that are set to be consumed out of a player's inventory. Returns how many. */
     public int consume(Player player, boolean all) {
+        // returns the cursor and the 2x2 crafting grid to the main inventory first, so nothing there dodges the scan
+        player.closeInventory();
         int removed = 0;
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
-            ItemStack item = player.getInventory().getItem(i);
-            String id = idOf(item);
-            if (id == null) continue;
-            Template t = templates.get(id);
-            if (all || (t != null && t.consume)) {
-                player.getInventory().setItem(i, null);
+        var inventory = player.getInventory();
+        for (int i = 0; i < inventory.getSize(); i++) {
+            ItemStack item = inventory.getItem(i);
+            if (matches(item, all)) {
+                inventory.setItem(i, null);
                 removed++;
+            } else {
+                removed += stripNested(item, all);
             }
+        }
+        ItemStack cursor = player.getItemOnCursor();
+        if (matches(cursor, all)) {
+            player.setItemOnCursor(null);
+            removed++;
+        } else {
+            removed += stripNested(cursor, all);
         }
         return removed;
     }

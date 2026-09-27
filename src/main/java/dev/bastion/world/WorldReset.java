@@ -13,6 +13,7 @@ import org.bukkit.block.Container;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -95,6 +96,9 @@ public final class WorldReset {
             });
         }, progress, "Comparing").whenComplete((v, error) -> onMain(() -> {
             if (error != null) {
+                // capture()'s error path already releases its tickets; restore()'s did not, leaving those chunks
+                // force-loaded until a restart
+                for (int[] c : chunks) world.removePluginChunkTicket(c[0], c[1], plugin);
                 busy = false;
                 plugin.getLogger().warning("World restore failed: " + error);
                 done.accept(new Result(chunks.size(), -1, (System.nanoTime() - started) / 1_000_000));
@@ -227,7 +231,11 @@ public final class WorldReset {
             }
         }
         for (Entity entity : chunk.getEntities()) {
-            if (entity instanceof Item) entity.remove();
+            // dropped items, and any dungeon mob left over from a crash, a chunk-unload while it was tracked, or
+            // one still mid-emerge (setPersistent(true), so it otherwise survives a reset forever)
+            if (entity instanceof Item || entity.getPersistentDataContainer().has(dev.bastion.mob.Mobs.TAG, PersistentDataType.BYTE)) {
+                entity.remove();
+            }
         }
     }
 

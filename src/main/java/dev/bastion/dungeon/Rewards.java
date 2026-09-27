@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
@@ -115,6 +117,8 @@ public final class Rewards {
         }
     }
 
+    private static final Set<String> warnedAmounts = ConcurrentHashMap.newKeySet();
+
     /** "5000" or "5-15". */
     private static long amount(String text, ThreadLocalRandom rng) {
         try {
@@ -123,6 +127,10 @@ public final class Rewards {
             long b = p.length > 1 ? Long.parseLong(p[1].trim()) : a;
             return rng.nextLong(Math.min(a, b), Math.max(a, b) + 1);
         } catch (NumberFormatException e) {
+            // otherwise a rewards.yml typo silently pays 0 forever with no sign anything is wrong
+            if (warnedAmounts.add(text)) {
+                Bukkit.getLogger().warning("[Bastion] rewards.yml has a bad amount '" + text + "', paying 0");
+            }
             return 0;
         }
     }

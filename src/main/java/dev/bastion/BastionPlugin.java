@@ -68,7 +68,7 @@ public final class BastionPlugin extends JavaPlugin {
         doors.load();
         Mobs mobs = new Mobs(this, fx, () -> dungeon.players());
         mobs.load();
-        Waves waves = new Waves(mobs, points);
+        Waves waves = new Waves(this, mobs, points);
         Bosses bosses = new Bosses(this, mobs, points, fx, tasks, () -> dungeon.players());
         bosses.load();
         Artifacts artifacts = new Artifacts(this);

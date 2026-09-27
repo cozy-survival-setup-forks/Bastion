@@ -33,7 +33,11 @@ public final class Messages {
     }
 
     public String raw(String key, String... pairs) {
-        String text = yaml.getString(key, key);
+        // getString(key) (no explicit default) is what actually falls back to the bundled messages.yml set by
+        // setDefaults() above; passing a default here would skip that and always show the raw key on a server
+        // whose messages.yml predates a newer key
+        String text = yaml.getString(key);
+        if (text == null) text = key;
         for (int i = 0; i + 1 < pairs.length; i += 2) text = text.replace("%" + pairs[i] + "%", pairs[i + 1]);
         return text;
     }
@@ -53,7 +57,8 @@ public final class Messages {
     }
 
     public Component prefixed(String key, String... pairs) {
-        return Text.component(yaml.getString("prefix", "") + raw(key, pairs));
+        String prefix = yaml.getString("prefix");
+        return Text.component((prefix == null ? "" : prefix) + raw(key, pairs));
     }
 
     public void send(CommandSender to, String key, String... pairs) {

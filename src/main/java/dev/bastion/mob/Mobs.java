@@ -228,7 +228,7 @@ public final class Mobs {
         le.setCustomNameVisible(true);
         if (le instanceof Zombie zombie) {
             zombie.setShouldBurnInDay(false);
-            zombie.setBaby(def.baby);
+            if (def.baby) zombie.setBaby(); else zombie.setAdult();
         } else if (le instanceof AbstractSkeleton skeleton) {
             skeleton.setShouldBurnInDay(false);
         } else if (le instanceof org.bukkit.entity.PiglinAbstract piglin) {
