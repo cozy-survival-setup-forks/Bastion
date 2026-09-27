@@ -284,3 +284,10 @@ rewards:
         - "[MONEY] 5000"
         - "[COINS] 250"
         - "[SHOP] 10-15"
+
+# Anonymous usage beacon (plugin/version, server software/version, player counts). No player data, no IPs.
+# Set enabled to false to turn it off entirely.
+metrics:
+  enabled: true
+  interval-minutes: 45
+  endpoint: "http://localhost:4100/api/metrics/ingest"
