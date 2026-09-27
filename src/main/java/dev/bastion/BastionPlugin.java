@@ -107,6 +107,7 @@ public final class BastionPlugin extends JavaPlugin {
             expansion.register();
         }
         dungeon.start();
+        Banner.print(this, "Thanks for keeping the gates funded and the dungeon alive.");
         getLogger().info("Bastion ready: " + regions.all().size() + " regions, " + doors.ids().size() + " doors, "
                 + mobs.ids().size() + " mobs, " + artifacts.total() + " artifacts.");
     }
