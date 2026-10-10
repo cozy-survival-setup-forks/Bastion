@@ -97,7 +97,7 @@ Permissions: `dungeon.use` (everyone), `dungeon.admin`, `dungeon.wand`, `dungeon
 | `menus.yml` | The menu, in the style of DeluxeMenus. Actions: `[COMMAND]` `[CONSOLE]` `[MESSAGE]` `[OPEN_MENU]` `[CONTRIBUTE]` `[CONTRIBUTE_PROMPT]` `[ENTER]` `[LEAVE]` `[CLOSE]` `[SOUND]` |
 | `setup.yml` | The build: regions, doors and points. The default setup fills it in |
 | `schematics/` | `dungeon_clean.schem`, the snapshot every run is reset to, and any schematic you want to `/dungeon paste` |
-| `data.yml` | Runtime data: the funding so far, and where players in the dungeon came from. Not for editing |
+| `bastion.db` | Runtime data (SQLite): the funding so far, who paid what, and where players in the dungeon came from. Not for editing. An older `data.yml` is brought in once at the first start, in one step and checked, and renamed to `data.yml.migrated` |
 
 Add a wave, a mob, a boss ability or a line of dialogue by editing a file and running `/dungeon reload`.
 
@@ -151,6 +151,8 @@ On Paper 1.21.11 with two players in a run, a full playthrough from funding to t
 - `config.yml` and `messages.yml` start with a `config-version` / `lang-version` number. After an update, new settings are added to your files with their comments, and nothing you changed is touched. The old file is kept next to it as `<name>.<date>.bak` (the newest 5). A setting is only removed when the changelog says so.
 - A value with a mistake (a negative time, an item that does not exist, text where a number belongs) is named in the console by file and key. On a reload, the settings in use stay as they were.
 - Files are written to a temporary file and moved into place, with the previous version kept as `.bak`. A file that cannot be read is restored from its `.bak`, and the unreadable one is kept as `.broken-<time>`.
+- Money is written down around the economy calls: a contribution is recorded before it is taken and finished together with the funding, and the refunds when nobody joins are written down in the same step that clears the funding. A stop in the middle never pays anyone twice; anything that may not have gone through is listed in `/dungeon doctor` and the console, and `/dungeon doctor resolve <id>` clears an entry after you have checked it.
+- `setup.yml` (your build) is restored from `setup.yml.bak` if it is damaged. If it cannot be read at all, it is left exactly as it is, nothing is saved over it, and `/dungeon doctor` says so.
 - A file or database that was made by a newer version of the plugin is left alone and a warning is logged.
 - `bastion.db` is a SQLite database in WAL mode. It is checked when the plugin starts, a copy is made on a schedule (`backup.interval-hours`, `backup.keep` in `config.yml`, in the `backups` folder) and every copy is opened and checked before older ones are removed. A damaged database is replaced by the newest copy that checks out, or, where nothing may be lost, the plugin stays off and the file is left untouched.
 - The backup is a consistent snapshot, not a copy of the open file.
