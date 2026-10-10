@@ -60,14 +60,17 @@ public final class VaultEconomy implements Rewards.Economy {
     }
 
     @Override
-    public void deposit(OfflinePlayer player, double amount) {
+    public boolean deposit(OfflinePlayer player, double amount) {
         try {
             Object response = deposit.invoke(provider, player, amount);
             if (!(boolean) success.invoke(response)) {
                 Bukkit.getLogger().warning("[Bastion] Deposit of " + amount + " to " + player.getUniqueId() + " failed");
+                return false;
             }
+            return true;
         } catch (ReflectiveOperationException e) {
             Bukkit.getLogger().log(Level.WARNING, "[Bastion] Deposit of " + amount + " to " + player.getUniqueId() + " failed", e);
+            return false;
         }
     }
 

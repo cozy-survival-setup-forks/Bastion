@@ -146,11 +146,21 @@ On Paper 1.21.11 with two players in a run, a full playthrough from funding to t
 - Sign text and container items in the snapshot. Restoring puts blocks back and empties containers, which is what a
   run needs.
 
+## Keeping your files safe
+
+- `config.yml` and `messages.yml` start with a `config-version` / `lang-version` number. After an update, new settings are added to your files with their comments, and nothing you changed is touched. The old file is kept next to it as `<name>.<date>.bak` (the newest 5). A setting is only removed when the changelog says so.
+- A value with a mistake (a negative time, an item that does not exist, text where a number belongs) is named in the console by file and key. On a reload, the settings in use stay as they were.
+- Files are written to a temporary file and moved into place, with the previous version kept as `.bak`. A file that cannot be read is restored from its `.bak`, and the unreadable one is kept as `.broken-<time>`.
+- A file or database that was made by a newer version of the plugin is left alone and a warning is logged.
+- `bastion.db` is a SQLite database in WAL mode. It is checked when the plugin starts, a copy is made on a schedule (`backup.interval-hours`, `backup.keep` in `config.yml`, in the `backups` folder) and every copy is opened and checked before older ones are removed. A damaged database is replaced by the newest copy that checks out, or, where nothing may be lost, the plugin stays off and the file is left untouched.
+- The backup is a consistent snapshot, not a copy of the open file.
+- `/dungeon doctor` shows the health of the files, versions, last backup and recent save failures (no player data). `/dungeon backup now` makes a checked backup right away. Both need the admin permission.
+
 ## Telemetry
 
 On startup Bastion sends a small anonymous beacon (plugin name/version, server software/version, online/max player
 counts, and a random ID with no player data) so we know which versions are in use. Turn it off with
-`metrics.enabled: false` in `config.yml`.
+`metrics.enabled: false` in `config.yml`. The random ID is kept as `server-id` in `bastion.db` (older versions kept it in a `.server-id` file, which is moved over unchanged). The address and the interval are fixed in the plugin and are not settings.
 
 ## Building
 

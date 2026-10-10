@@ -1,3 +1,4 @@
+config-version: 1
 # Bastion config.yml
 # Timers and limits, then the rooms, the artifacts and the rewards. There is no minimum or maximum number of players.
 # Other files: messages.yml (every message and story line), mobs.yml (mobs and bosses), menus.yml (the menu),
@@ -141,14 +142,6 @@ artifacts:
   consume-on-victory: false
   # How the mini-boss artifacts are handed out: auto (one each to the nearest players) or drop (on the ground)
   room2-mode: auto
-  # The shop currency: not one of the nine, kills and the final boss pay it out (see rewards.tiers' [SHOP] rolls).
-  # Same fields as an item below. Stacks like a normal item, so it shows up in the shop's %dungeon_shop_currency%.
-  special:
-    dungeon_shard:
-      material: PRISMARINE_SHARD
-      display_name: "&bDungeon Shard"
-      lore:
-        - "&7Spend these at the dungeon shop."
   # One section per artifact, like an item in DeluxeMenus: material, display_name, lore, custom_model_data, consume
   items:
     whispering_tome:
@@ -214,6 +207,9 @@ artifacts:
         - "&7The final piece. It is still burning."
         - ""
         - "&8Found by %player_found_by%, %find_order% of %total%"
+  # The shop currency: not one of the nine, kills and the final boss pay it out (see rewards.tiers' [SHOP] rolls).
+  # Same fields as an item above. Stacks like a normal item, so it shows up in the shop's %dungeon_shop_currency%.
+  # Only the first entry is used.
   special:
     sovereign_relic:
       material: NETHER_STAR
@@ -285,8 +281,15 @@ rewards:
         - "[COINS] 250"
         - "[SHOP] 10-15"
 
+# Copies of the saved data (bastion.db), made while the server runs and checked before older ones are removed.
+# They are in the "backups" folder. /dungeon backup now makes one at once.
+backup:
+  # Hours between copies.
+  interval-hours: 6
+  # How many copies to keep.
+  keep: 7
+
 # Anonymous usage beacon (plugin/version, server software/version, player counts). No player data, no IPs.
 # Set enabled to false to turn it off entirely.
 metrics:
   enabled: true
-  interval-minutes: 45

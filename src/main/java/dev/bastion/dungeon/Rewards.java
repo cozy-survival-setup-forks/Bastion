@@ -27,7 +27,8 @@ public final class Rewards {
 
         boolean withdraw(org.bukkit.OfflinePlayer player, double amount);
 
-        void deposit(org.bukkit.OfflinePlayer player, double amount);
+        /** @return true when the money was paid */
+        boolean deposit(org.bukkit.OfflinePlayer player, double amount);
 
         String format(double amount);
     }
@@ -78,8 +79,38 @@ public final class Rewards {
         rolls.forEach(r -> roll(killer, r, false));
     }
 
+    /** The record of payouts, or null (tests). Set once the store is open. */
+    private volatile dev.bastion.safe.Journal journal;
+    /** What went wrong while paying the current victory, or null. Only used on the main thread. */
+    private String failure;
+
+    public void journal(dev.bastion.safe.Journal journal) {
+        this.journal = journal;
+    }
+
     public void victory(Player player) {
+        dev.bastion.safe.Journal j = journal;
+        String record = null;
+        if (j != null) {
+            try {
+                record = j.begin("victory-reward", "player=" + player.getName() + " uuid=" + player.getUniqueId());
+            } catch (java.sql.SQLException e) {
+                Bukkit.getLogger().warning("[Bastion] The payout record could not be written for " + player.getName() + ": " + e.getMessage());
+            }
+        }
+        failure = null;
         victory.forEach(r -> roll(player, r, true));
+        if (j != null && record != null) {
+            try {
+                if (failure == null) j.succeeded(record);
+                else j.flag(record, failure);
+            } catch (java.sql.SQLException e) {
+                Bukkit.getLogger().warning("[Bastion] The payout record could not be finished: " + e.getMessage());
+            }
+        }
+        if (failure != null) {
+            Bukkit.getLogger().severe("[Bastion] A reward for " + player.getName() + " was not paid: " + failure + ". It is listed in /dungeon doctor.");
+        }
     }
 
     private void roll(Player player, Roll roll, boolean announce) {
@@ -98,8 +129,11 @@ public final class Rewards {
                     long amount = amount(rest, rng);
                     Economy eco = economy.get();
                     if (amount > 0 && eco != null) {
-                        eco.deposit(player, amount);
-                        if (announce) player.sendMessage(net.kyori.adventure.text.Component.text("+" + eco.format(amount)));
+                        if (eco.deposit(player, amount)) {
+                            if (announce) player.sendMessage(net.kyori.adventure.text.Component.text("+" + eco.format(amount)));
+                        } else {
+                            failure = "the economy refused " + amount;
+                        }
                     }
                 }
                 case "COINS" -> {

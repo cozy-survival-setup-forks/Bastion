@@ -52,7 +52,7 @@ public final class Points {
     public void load() {
         groups.clear();
         if (!file.exists()) return;
-        ConfigurationSection all = YamlConfiguration.loadConfiguration(file).getConfigurationSection("points");
+        ConfigurationSection all = SetupFile.read(file, log).getConfigurationSection("points");
         if (all == null) return;
         for (String group : all.getKeys(false)) {
             List<Spot> spots = new ArrayList<>();
@@ -68,10 +68,11 @@ public final class Points {
     }
 
     public void save() {
-        YamlConfiguration yaml = SetupFile.open(file, "points");
+        YamlConfiguration yaml = SetupFile.open(file, "points", log);
+        if (yaml == null) return;
         groups.forEach((group, spots) -> yaml.set("points." + group, spots.stream().map(Spot::write).toList()));
         try {
-            yaml.save(file);
+            SetupFile.save(file, yaml, log);
         } catch (IOException e) {
             log.warning("Could not save points.yml: " + e.getMessage());
         }

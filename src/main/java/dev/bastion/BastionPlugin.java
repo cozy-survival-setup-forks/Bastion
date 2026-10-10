@@ -20,14 +20,27 @@ import dev.bastion.mob.Waves;
 import dev.bastion.region.RegionIndex;
 import dev.bastion.region.RegionStore;
 import dev.bastion.region.Wand;
+import dev.bastion.safe.ConfigMigrator;
+import dev.bastion.safe.Doctor;
+import dev.bastion.safe.FileBackups;
+import dev.bastion.safe.Guard;
+import dev.bastion.safe.Health;
+import dev.bastion.safe.Prep;
+import dev.bastion.safe.ServerId;
 import dev.bastion.util.Fx;
 import dev.bastion.util.TaskBag;
 import dev.bastion.util.Titles;
 import dev.bastion.world.Points;
 import dev.bastion.world.WorldReset;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Bastion: a crowdfunded, instanced dungeon. Money pools to a goal, a join window opens, then a state machine runs
@@ -37,6 +50,19 @@ import java.io.File;
  */
 public final class BastionPlugin extends JavaPlugin {
 
+    private static final int CONFIG_VERSION = 1;
+    private static final int LANG_VERSION = 1;
+
+    private final List<Prep.Spec> files = List.of(
+            new Prep.Spec("config.yml", "config-version", CONFIG_VERSION, Prep.configMigrator(CONFIG_VERSION), rules -> {
+                rules.range("goal", 1, 1_000_000_000_000.0);
+                rules.range("backup.interval-hours", 1, 168);
+                rules.range("backup.keep", 1, 90);
+            }),
+            new Prep.Spec("messages.yml", "lang-version", LANG_VERSION, new ConfigMigrator("lang-version", LANG_VERSION), null));
+
+    private BukkitTask backupTask;
+    private boolean started;
     private Dungeon dungeon;
     private Menus menus;
     private Wand wand;
@@ -58,6 +84,9 @@ public final class BastionPlugin extends JavaPlugin {
 
     private void enableInner() {
         saveDefaultConfig();
+        Health.storage("SQLite bastion.db for funding and return places; YAML for config.yml, messages.yml, mobs.yml, menus.yml and setup.yml");
+        Prep.startup(this, files);
+        reloadConfig();
         new File(getDataFolder(), "schematics").mkdirs();
         if (getConfig().getConfigurationSection("rooms") == null) {
             getLogger().warning("config.yml has no rooms section, so it is from an older version. Delete config.yml, messages.yml and mobs.yml (and the old dialogue, rooms, bosses, artifacts and rewards files) and restart.");
@@ -72,7 +101,16 @@ public final class BastionPlugin extends JavaPlugin {
         Points points = new Points(new File(getDataFolder(), "setup.yml"), getLogger());
         points.load();
         store = new Store(this);
-        store.load();
+        try {
+            store.open(backupKeep());
+        } catch (IOException | SQLException | InvalidConfigurationException e) {
+            // the funding and the refunds that are owed are never replaced by an empty set: the plugin stays off
+            getLogger().severe("Bastion cannot use its saved data and is switching itself off so no money is lost or paid twice: " + e.getMessage());
+            Health.failure("saved data could not be opened: " + e.getMessage());
+            store = null;
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
         TaskBag tasks = new TaskBag(this);
         Fx fx = new Fx(() -> dungeon.players());
@@ -89,6 +127,7 @@ public final class BastionPlugin extends JavaPlugin {
         Rooms rooms = new Rooms(this);
         rooms.load();
         Rewards rewards = new Rewards(this, () -> dungeon.economy, () -> dungeon.settings.coinsCommand, artifacts);
+        rewards.journal(store.journal());
         rewards.load();
         Titles titles = new Titles(tasks);
         Dialogue dialogue = new Dialogue(this, () -> dungeon.players(), tasks, titles);
@@ -118,7 +157,10 @@ public final class BastionPlugin extends JavaPlugin {
             expansion.register();
         }
         dungeon.start();
-        Metrics.start(this);
+        boolean beacon = getConfig().getBoolean("metrics.enabled", true);
+        Metrics.start(this, ServerId.resolve(getDataFolder().toPath(), store.serverIdSlot(), beacon, getLogger()));
+        scheduleBackups();
+        started = true;
         Banner.print(this, "Thanks for keeping the gates funded and the dungeon alive.");
         getLogger().info("Bastion ready: " + regions.all().size() + " regions, " + doors.ids().size() + " doors, "
                 + mobs.ids().size() + " mobs, " + artifacts.total() + " artifacts.");
@@ -128,13 +170,74 @@ public final class BastionPlugin extends JavaPlugin {
     public void onDisable() {
         if (menus != null) menus.closeAll();
         if (expansion != null) expansion.unregister();
+        if (backupTask != null) backupTask.cancel();
         if (dungeon != null) dungeon.stop();
         if (store != null) store.close();
     }
 
+    private int backupKeep() {
+        return Math.max(1, Math.min(90, getConfig().getInt("backup.keep", 7)));
+    }
+
+    /** (Re)starts the timer of the database copies from backup.interval-hours and backup.keep. */
+    private void scheduleBackups() {
+        int hours = Math.max(1, Math.min(168, getConfig().getInt("backup.interval-hours", 6)));
+        store.configureBackups(backupKeep());
+        if (backupTask != null) backupTask.cancel();
+        backupTask = getServer().getScheduler().runTaskTimerAsynchronously(this, store::backup, 20L * 60, hours * 3600L * 20L);
+    }
+
+    /** The text of /dungeon doctor. */
+    public List<String> doctor() {
+        List<String> extra = new ArrayList<>(Prep.versionLines(this, files));
+        extra.add("Saved data: bastion.db, schema " + store.schemaVersion() + " (this plugin writes " + Store.SCHEMA + ")");
+        extra.add("Funding: " + store.paid().size() + " contribution(s) recorded, return places: " + (store.hasReturns() ? "some" : "none"));
+        String newest = store.newestBackup();
+        extra.add("Newest database copy on disk: " + (newest == null ? "none yet" : newest));
+        extra.add("Pending writes: 0 (every change is written as it happens)");
+        extra.add("setup.yml: " + (dev.bastion.util.SetupFile.blocked(new File(getDataFolder(), "setup.yml"))
+                ? "could not be read, nothing is saved over it" : "ok"));
+        try {
+            List<String> unknown = store.journal() == null ? List.of() : store.journal().unknown();
+            extra.add("Payouts that may or may not have been made (not repeated): " + unknown.size());
+            unknown.forEach(line -> extra.add("  " + line + "   (after checking: /dungeon doctor resolve <id>)"));
+        } catch (SQLException e) {
+            extra.add("Payout record could not be read: " + e.getMessage());
+        }
+        return Doctor.report(getName(), getPluginMeta().getVersion(), extra);
+    }
+
+    public boolean resolvePayout(String id) {
+        try {
+            return store.journal() != null && store.journal().resolve(id);
+        } catch (SQLException e) {
+            getLogger().severe("Could not update the payout record: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** /dungeon backup now: a checked copy of the database and of the settings and setup files. */
+    public boolean backupNow() {
+        boolean database = store.backup();
+        List<String> names = new ArrayList<>(Prep.fileNames(files));
+        names.add("mobs.yml");
+        names.add("menus.yml");
+        names.add("setup.yml");
+        boolean settingsFiles = FileBackups.snapshot(getDataFolder().toPath(), names, 5, getLogger());
+        return database && settingsFiles;
+    }
+
     /** Reads every file again. A run in progress keeps going with what it has loaded for the rooms. */
-    public void reloadAll() {
+    public boolean reloadAll() {
+        if (started) {
+            List<Guard.Problem> problems = Prep.validate(this, files);
+            if (!problems.isEmpty()) {
+                Prep.logRejected(this, problems);
+                return false;
+            }
+        }
         reloadConfig();
+        scheduleBackups();
         dungeon.settings = new Settings(getConfig());
         dungeon.messages.load();
         regionStore.load();
@@ -147,6 +250,7 @@ public final class BastionPlugin extends JavaPlugin {
         dungeon.rewards.load();
         dungeon.dialogue.load();
         menus.load();
+        return true;
     }
 
     public Menus menus() {

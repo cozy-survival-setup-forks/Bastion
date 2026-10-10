@@ -26,7 +26,7 @@ public final class RegionStore {
     public void load() {
         index.clear();
         if (!file.exists()) return;
-        ConfigurationSection all = YamlConfiguration.loadConfiguration(file).getConfigurationSection("regions");
+        ConfigurationSection all = SetupFile.read(file, log).getConfigurationSection("regions");
         if (all == null) return;
         for (String id : all.getKeys(false)) {
             ConfigurationSection s = all.getConfigurationSection(id);
@@ -62,7 +62,8 @@ public final class RegionStore {
     }
 
     public void save() {
-        YamlConfiguration yaml = SetupFile.open(file, "regions");
+        YamlConfiguration yaml = SetupFile.open(file, "regions", log);
+        if (yaml == null) return;
         for (Region region : index.all()) {
             String path = "regions." + region.id();
             yaml.set(path + ".type", region.type().name());
@@ -83,7 +84,7 @@ public final class RegionStore {
             }
         }
         try {
-            yaml.save(file);
+            SetupFile.save(file, yaml, log);
         } catch (IOException e) {
             log.warning("Could not save regions.yml: " + e.getMessage());
         }

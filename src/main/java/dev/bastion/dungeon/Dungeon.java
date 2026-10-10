@@ -92,6 +92,7 @@ public final class Dungeon {
     private long returnDeadline;
     private long joinDeadline, lockDeadline, countdownDeadline, runDeadline, celebrationDeadline;
     private long nextSecond, nextCompass, nextFirework;
+    private long refundRetryAt;
     private long nextTickErrorLog;
     private int shownCountdown;
     private boolean minibossDead;
@@ -244,11 +245,56 @@ public final class Dungeon {
         double pay = Math.floor(Math.min(amount, left) * 100) / 100.0;
         if (pay < 0.01) return "in-progress";
         if (!economy.has(player, pay)) return "not-enough";
-        if (!economy.withdraw(player, pay)) return "not-enough";
-        store.addFunds(player.getUniqueId(), pay);
+        // written down before the money moves: a stop in the middle is listed for a person to check, never repeated
+        dev.bastion.safe.Journal journal = store.journal();
+        String record = null;
+        if (journal != null) {
+            try {
+                record = journal.begin("contribution", "player=" + player.getName() + " uuid=" + player.getUniqueId() + " amount=" + pay);
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("The payout record could not be written, so the contribution of " + player.getName() + " was not taken: " + e.getMessage());
+                return "contribute-failed";
+            }
+        }
+        if (!economy.withdraw(player, pay)) {
+            finishRecord(record, false, "the economy refused to take it");
+            return "not-enough";
+        }
+        // the funding and the record are written together; if that fails the money goes straight back
+        if (!store.addFunds(player.getUniqueId(), pay, record)) {
+            boolean back = economy.deposit(player, pay);
+            if (back) {
+                finishRecord(record, false, "funding could not be saved, money returned");
+            } else {
+                flagRecord(record, "funding could not be saved and the money could not be returned");
+                plugin.getLogger().severe(pay + " was taken from " + player.getName() + " but could not be saved or returned. It is listed in /dungeon doctor.");
+            }
+            return "contribute-failed";
+        }
         messages.send(player, "contributed", "amount", economy.format(pay));
         if (store.current() >= settings.goal) openForEntry();
         return null;
+    }
+
+    private void finishRecord(String record, boolean ok, String reason) {
+        dev.bastion.safe.Journal journal = store.journal();
+        if (journal == null || record == null) return;
+        try {
+            if (ok) journal.succeeded(record);
+            else journal.failed(record, reason);
+        } catch (java.sql.SQLException e) {
+            plugin.getLogger().warning("The payout record could not be finished: " + e.getMessage());
+        }
+    }
+
+    private void flagRecord(String record, String reason) {
+        dev.bastion.safe.Journal journal = store.journal();
+        if (journal == null || record == null) return;
+        try {
+            journal.flag(record, reason);
+        } catch (java.sql.SQLException e) {
+            plugin.getLogger().warning("The payout record could not be updated: " + e.getMessage());
+        }
     }
 
     /** For admins, and the forced start: as if the goal had been reached. */
@@ -496,10 +542,28 @@ public final class Dungeon {
         if (now < joinDeadline) return;
         if (insideCount() == 0) {
             // nobody came: money back if configured, and funding starts over
-            if (settings.refundWhenNobodyJoins && economy != null) {
-                store.paid().forEach((id, amount) -> economy.deposit(Bukkit.getOfflinePlayer(id), amount));
+            if (settings.refundWhenNobodyJoins && economy != null && !store.paid().isEmpty()) {
+                if (now < refundRetryAt) return;
+                Map<UUID, Double> owed = new LinkedHashMap<>(store.paid());
+                // the funding is cleared and each refund is written down in one step, before any money moves
+                Map<UUID, String> records = store.clearFundingWithRefunds(owed);
+                if (records.isEmpty()) {
+                    refundRetryAt = now + 30_000L;
+                    plugin.getLogger().severe("The refunds could not be written down, so none were paid. Trying again in 30 seconds.");
+                    return;
+                }
+                owed.forEach((id, amount) -> {
+                    boolean paid = economy.deposit(Bukkit.getOfflinePlayer(id), amount);
+                    if (paid) {
+                        finishRecord(records.get(id), true, null);
+                    } else {
+                        flagRecord(records.get(id), "the economy refused the refund");
+                        plugin.getLogger().severe("The refund of " + amount + " to " + id + " failed. It is listed in /dungeon doctor.");
+                    }
+                });
+            } else {
+                store.clearFunding();
             }
-            store.clearFunding();
             setState(DungeonState.FUNDING);
             Bukkit.broadcast(messages.prefixed("nobody-came"));
             return;

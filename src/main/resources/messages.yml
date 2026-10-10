@@ -1,3 +1,4 @@
+lang-version: 1
 # Bastion messages.yml
 # Every message the plugin sends, and every line of the story at the bottom (dialogue).
 # Texts take & codes, &#rrggbb and MiniMessage. %name% is filled in by the plugin.
@@ -60,6 +61,8 @@ player-not-found: "&cThat player is not online."
 no-permission: "&cYou cannot do that."
 players-only: "&cOnly players can do that."
 reloaded: "&fReloaded."
+reload-failed: "&cA file has a mistake in it, so nothing was reloaded. The console has the details."
+contribute-failed: "&cThe contribution could not be saved, so nothing was taken. Try again in a moment."
 usage: "&f/dungeon [menu|status|contribute <amount>|enter|leave|votekick <player>]"
 status: "&fState &e%state% &8| &fFunding &e%goal% &8| &fInside &e%players% &8| &fArtifacts &e%artifacts% &8| &fTime &e%time%"
 force-started: "&fStarted. The dungeon is now &e%state%&f."

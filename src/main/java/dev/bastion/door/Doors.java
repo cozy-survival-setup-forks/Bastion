@@ -83,7 +83,7 @@ public final class Doors {
     public void load() {
         doors.clear();
         if (!file.exists()) return;
-        ConfigurationSection all = YamlConfiguration.loadConfiguration(file).getConfigurationSection("doors");
+        ConfigurationSection all = dev.bastion.util.SetupFile.read(file, plugin.getLogger()).getConfigurationSection("doors");
         if (all == null) return;
         for (String id : all.getKeys(false)) {
             ConfigurationSection s = all.getConfigurationSection(id);
@@ -106,7 +106,8 @@ public final class Doors {
     }
 
     private void save() {
-        YamlConfiguration yaml = dev.bastion.util.SetupFile.open(file, "doors");
+        YamlConfiguration yaml = dev.bastion.util.SetupFile.open(file, "doors", plugin.getLogger());
+        if (yaml == null) return;
         for (Door door : doors.values()) {
             String path = "doors." + door.id;
             yaml.set(path + ".world", door.world);
@@ -121,7 +122,7 @@ public final class Doors {
             yaml.set(path + ".blocks", blocks);
         }
         try {
-            yaml.save(file);
+            dev.bastion.util.SetupFile.save(file, yaml, plugin.getLogger());
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save doors.yml: " + e.getMessage());
         }

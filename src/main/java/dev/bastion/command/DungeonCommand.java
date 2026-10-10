@@ -31,7 +31,7 @@ public final class DungeonCommand implements TabExecutor {
 
     private static final List<String> PLAYER = List.of("menu", "status", "contribute", "enter", "leave", "votekick");
     private static final List<String> ADMIN = List.of("reload", "forcestart", "forceend", "forcereset", "forcefund", "debug",
-            "wand", "region", "door", "point", "chest", "paste");
+            "wand", "region", "door", "point", "chest", "paste", "doctor", "backup");
 
     private final BastionPlugin plugin;
     private final Dungeon dungeon;
@@ -106,8 +106,22 @@ public final class DungeonCommand implements TabExecutor {
             }
             case "reload" -> {
                 if (admin(sender)) {
-                    plugin.reloadAll();
-                    say(sender, "reloaded");
+                    say(sender, plugin.reloadAll() ? "reloaded" : "reload-failed");
+                }
+            }
+            case "doctor" -> {
+                if (admin(sender)) {
+                    if (rest.length >= 2 && rest[0].equalsIgnoreCase("resolve")) {
+                        sender.sendPlainMessage(plugin.resolvePayout(rest[1]) ? "Marked as checked." : "No unfinished payout has that id.");
+                    } else {
+                        plugin.doctor().forEach(sender::sendPlainMessage);
+                    }
+                }
+            }
+            case "backup" -> {
+                if (admin(sender)) {
+                    if (rest.length < 1 || !rest[0].equalsIgnoreCase("now")) sender.sendPlainMessage("Use /dungeon backup now");
+                    else sender.sendPlainMessage(plugin.backupNow() ? "Backup made and checked." : "The backup FAILED, see the console.");
                 }
             }
             case "forcestart" -> {
@@ -559,6 +573,7 @@ public final class DungeonCommand implements TabExecutor {
                 case "chest" -> options.addAll(List.of("add", "list", "remove", "clear"));
                 case "wand" -> options.addAll(List.of("cuboid", "polygon"));
                 case "forcestart" -> options.add("now");
+                case "backup" -> options.add("now");
                 case "menu" -> options.add("reload");
                 default -> { }
             }
